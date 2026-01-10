@@ -15,7 +15,7 @@ import {
   History,
   ChefHat,
   Package,
-  Menu, // New Icon for Sidebar Toggle
+  Menu,
   Database
 } from 'lucide-react';
 

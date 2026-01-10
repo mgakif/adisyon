@@ -27,6 +27,31 @@ let MOCK_ORDERS: Order[] = [];
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const supabaseService = {
+  // --- AUTH ---
+  signIn: async (email: string, password: string) => {
+    if (isMockMode) {
+      await delay(500);
+      // Accept any login in mock mode
+      return { user: { email, role: 'admin' }, error: null };
+    }
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    return { user: data.user, error };
+  },
+
+  signOut: async () => {
+    if (isMockMode) return;
+    await supabase.auth.signOut();
+  },
+
+  getCurrentUser: async () => {
+    if (isMockMode) return { email: 'demo@admin.com', role: 'admin' };
+    const { data } = await supabase.auth.getUser();
+    return data.user;
+  },
+
   // --- PRODUCTS ---
   
   getProducts: async (): Promise<Product[]> => {

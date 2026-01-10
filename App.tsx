@@ -5,6 +5,7 @@ import { ICONS, CATEGORIES } from './constants';
 import WeightModal from './components/WeightModal';
 import PaymentModal from './components/PaymentModal';
 import ProductFormModal from './components/ProductFormModal';
+import TableFormModal from './components/TableFormModal'; // Imported
 import { useSupabaseRealtime } from './hooks/useSupabaseRealtime';
 
 // --- SUB-COMPONENTS (Defined locally for single-file constraints in complex parts) ---
@@ -97,6 +98,9 @@ export default function App() {
   // Product Management Modal
   const [productFormOpen, setProductFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  // Table Management Modal
+  const [tableFormOpen, setTableFormOpen] = useState(false);
 
   // Load Data
   const refreshData = useCallback(async () => {
@@ -256,6 +260,32 @@ export default function App() {
     }
   };
 
+  // Table Management Actions
+  const handleSaveTable = async (tableData: Partial<Table>) => {
+    try {
+        await supabaseService.saveTable(tableData);
+        await refreshData();
+    } catch (e) {
+        alert('Masa kaydedilemedi');
+    }
+  };
+
+  const handleDeleteTable = async (e: React.MouseEvent, table: Table) => {
+    e.stopPropagation(); // Prevent opening table
+    if (table.status === 'occupied') {
+        alert('Dolu masa silinemez!');
+        return;
+    }
+    if (window.confirm(`${table.name} silinecek. Emin misiniz?`)) {
+        try {
+            await supabaseService.deleteTable(table.id);
+            await refreshData();
+        } catch (e) {
+            alert('Silinemedi');
+        }
+    }
+  };
+
   // --- RENDER HELPERS ---
 
   const filteredProducts = products.filter(p => 
@@ -270,18 +300,27 @@ export default function App() {
     <div className="p-6 overflow-y-auto h-full bg-slate-100">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-slate-800">Masa Seçimi</h2>
-        <button 
-          onClick={() => handleTableSelect(null)} 
-          className="bg-orange-600 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-orange-700 font-bold flex items-center gap-2"
-        >
-          <ICONS.Retail />
-          Hızlı Satış (Kasa Önü)
-        </button>
+        <div className="flex gap-4">
+             <button 
+                onClick={() => setTableFormOpen(true)}
+                className="bg-white text-slate-600 border border-slate-300 px-4 py-3 rounded-xl hover:bg-slate-50 font-semibold flex items-center gap-2"
+            >
+                <ICONS.Plus size={20} />
+                Masa Ekle
+            </button>
+            <button 
+                onClick={() => handleTableSelect(null)} 
+                className="bg-orange-600 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-orange-700 font-bold flex items-center gap-2"
+            >
+                <ICONS.Retail />
+                Hızlı Satış (Kasa Önü)
+            </button>
+        </div>
       </div>
       
       {tables.length === 0 ? (
           <div className="text-center p-10 text-slate-400">
-              <p>Masa bulunamadı. Lütfen önce veritabanına masa ekleyin veya Schema sekmesini kontrol edin.</p>
+              <p>Masa bulunamadı. "Masa Ekle" butonunu kullanarak yeni masa oluşturun.</p>
           </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -290,7 +329,7 @@ export default function App() {
                 key={table.id}
                 onClick={() => handleTableSelect(table.id)}
                 className={`
-                h-32 rounded-2xl flex flex-col items-center justify-center gap-2 border-2 transition-all relative
+                h-32 rounded-2xl flex flex-col items-center justify-center gap-2 border-2 transition-all relative group
                 ${table.status === 'occupied' 
                     ? 'bg-red-50 border-red-200 text-red-800 shadow-sm' 
                     : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-400 hover:text-emerald-600 shadow-sm'}
@@ -300,6 +339,16 @@ export default function App() {
                 <span className="font-bold">{table.name}</span>
                 {table.status === 'occupied' && (
                     <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                )}
+                {/* Delete button only visible for empty tables */}
+                {table.status !== 'occupied' && (
+                    <div 
+                        onClick={(e) => handleDeleteTable(e, table)}
+                        className="absolute top-2 right-2 p-1.5 rounded-full bg-slate-100 text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-red-100 hover:text-red-500 transition"
+                        title="Masayı Sil"
+                    >
+                        <ICONS.Delete size={14} />
+                    </div>
                 )}
             </button>
             ))}
@@ -530,6 +579,12 @@ export default function App() {
         initialData={editingProduct}
         onClose={() => setProductFormOpen(false)}
         onSave={handleSaveProduct}
+      />
+
+      <TableFormModal
+        isOpen={tableFormOpen}
+        onClose={() => setTableFormOpen(false)}
+        onSave={handleSaveTable}
       />
     </div>
   );

@@ -1,10 +1,40 @@
-import { supabase } from '../lib/supabase';
+import { supabase, isMockMode } from '../lib/supabase';
 import { Product, Table, Order, OrderItem } from '../types';
+
+// --- MOCK DATA FOR DEMO MODE ---
+let MOCK_PRODUCTS: Product[] = [
+  { id: '1', name: 'Antep Fıstığı', price: 650, unit: 'kg', type: 'retail', category: 'nuts' },
+  { id: '2', name: 'Karışık Lüks', price: 450, unit: 'kg', type: 'retail', category: 'nuts' },
+  { id: '3', name: 'Kuru İncir', price: 320, unit: 'kg', type: 'retail', category: 'dried_fruit' },
+  { id: '4', name: 'Çay (Bardak)', price: 15, unit: 'qty', type: 'service', category: 'drinks' },
+  { id: '5', name: 'Türk Kahvesi', price: 50, unit: 'qty', type: 'service', category: 'drinks' },
+  { id: '6', name: 'Limonata', price: 60, unit: 'qty', type: 'service', category: 'drinks' },
+  { id: '7', name: 'Çifte Kavrulmuş Lokum', price: 280, unit: 'kg', type: 'retail', category: 'dessert' },
+];
+
+let MOCK_TABLES: Table[] = [
+  { id: 't1', name: 'Masa 1', status: 'available', current_order_id: null },
+  { id: 't2', name: 'Masa 2', status: 'available', current_order_id: null },
+  { id: 't3', name: 'Masa 3', status: 'available', current_order_id: null },
+  { id: 't4', name: 'Masa 4', status: 'available', current_order_id: null },
+  { id: 't5', name: 'Bahçe 1', status: 'available', current_order_id: null },
+  { id: 't6', name: 'Bahçe 2', status: 'available', current_order_id: null },
+];
+
+let MOCK_ORDERS: Order[] = [];
+
+// Helper to simulate network delay
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const supabaseService = {
   // --- PRODUCTS ---
   
   getProducts: async (): Promise<Product[]> => {
+    if (isMockMode) {
+      await delay(300);
+      return [...MOCK_PRODUCTS];
+    }
+
     const { data, error } = await supabase
       .from('products')
       .select('*')
@@ -18,6 +48,22 @@ export const supabaseService = {
   },
 
   saveProduct: async (product: Partial<Product>) => {
+    if (isMockMode) {
+      await delay(300);
+      const newProduct = {
+        ...product,
+        id: product.id || Math.random().toString(36).substr(2, 9)
+      } as Product;
+      
+      const index = MOCK_PRODUCTS.findIndex(p => p.id === newProduct.id);
+      if (index >= 0) {
+        MOCK_PRODUCTS[index] = newProduct;
+      } else {
+        MOCK_PRODUCTS.push(newProduct);
+      }
+      return newProduct;
+    }
+
     // Remove id if it's undefined/empty string to let DB handle generation or use specific ID
     const productData = { ...product };
     if (!productData.id) delete productData.id;
@@ -33,6 +79,11 @@ export const supabaseService = {
   },
 
   deleteProduct: async (id: string) => {
+    if (isMockMode) {
+      MOCK_PRODUCTS = MOCK_PRODUCTS.filter(p => p.id !== id);
+      return;
+    }
+
     const { error } = await supabase
       .from('products')
       .delete()
@@ -44,10 +95,15 @@ export const supabaseService = {
   // --- TABLES ---
 
   getTables: async (): Promise<Table[]> => {
+    if (isMockMode) {
+      await delay(300);
+      return [...MOCK_TABLES];
+    }
+
     const { data, error } = await supabase
       .from('tables')
       .select('*')
-      .order('name'); // Assuming names are like 'Masa 1', 'Masa 2' sorting might need numeric field
+      .order('name'); 
     
     if (error) {
         console.error('Error fetching tables', error);
@@ -56,11 +112,51 @@ export const supabaseService = {
     return data as Table[];
   },
 
+  saveTable: async (table: Partial<Table>) => {
+    if (isMockMode) {
+      const newTable = {
+        ...table,
+        id: table.id || Math.random().toString(36).substr(2, 9),
+        status: table.status || 'available'
+      } as Table;
+      MOCK_TABLES.push(newTable);
+      return newTable;
+    }
+
+    const tableData = { ...table };
+    if (!tableData.id) delete tableData.id;
+
+    const { data, error } = await supabase
+        .from('tables')
+        .upsert(tableData)
+        .select()
+        .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  deleteTable: async (id: string) => {
+    if (isMockMode) {
+      MOCK_TABLES = MOCK_TABLES.filter(t => t.id !== id);
+      return;
+    }
+
+    const { error } = await supabase
+        .from('tables')
+        .delete()
+        .eq('id', id);
+    
+    if (error) throw error;
+  },
+
   // --- ORDERS ---
 
   getActiveOrders: async (): Promise<Order[]> => {
-    // Fetch orders that are not paid or cancelled
-    // Also fetch their items
+    if (isMockMode) {
+      return MOCK_ORDERS.filter(o => ['pending', 'preparing', 'served'].includes(o.status));
+    }
+
     const { data, error } = await supabase
       .from('orders')
       .select('*, items:order_items(*)')
@@ -75,16 +171,58 @@ export const supabaseService = {
   },
 
   upsertOrder: async (orderPartial: Partial<Order> & { table_id?: string | null }) => {
+    if (isMockMode) {
+      await delay(500);
+      let order = MOCK_ORDERS.find(o => o.id === orderPartial.id);
+      
+      if (!order) {
+        // Create new
+        order = {
+          id: orderPartial.id || Math.random().toString(36).substr(2, 9),
+          table_id: orderPartial.table_id || null,
+          status: orderPartial.status || 'pending',
+          total_amount: orderPartial.total_amount || 0,
+          created_at: new Date().toISOString(),
+          order_number: Math.floor(Math.random() * 1000).toString(),
+          items: []
+        } as Order;
+        MOCK_ORDERS.push(order);
+      } else {
+        // Update existing
+        order.status = orderPartial.status || order.status;
+        order.total_amount = orderPartial.total_amount || order.total_amount;
+      }
+
+      // Update Items
+      if (orderPartial.items) {
+        order.items = orderPartial.items.map(item => ({
+          ...item,
+          order_id: order!.id
+        }));
+      }
+
+      // Update Table
+      if (order.table_id) {
+        const table = MOCK_TABLES.find(t => t.id === order!.table_id);
+        if (table) {
+          table.status = 'occupied';
+          table.current_order_id = order.id;
+        }
+      }
+
+      return order;
+    }
+
+    // --- REAL IMPLEMENTATION ---
+    
     // 1. Prepare Order Data
     const orderData = {
         id: orderPartial.id,
         table_id: orderPartial.table_id || null,
         status: orderPartial.status || 'pending',
         total_amount: orderPartial.total_amount || 0,
-        // user_id: ... (if auth is implemented)
     };
 
-    // Remove ID if new (let DB generate or use UUID)
     if (!orderData.id) delete orderData.id;
 
     // 2. Upsert Order
@@ -97,13 +235,10 @@ export const supabaseService = {
     if (orderError) throw orderError;
     if (!order) throw new Error('Failed to create order');
 
-    // 3. Handle Order Items (Strategy: Delete all and re-insert for simplicity in this edit-mode)
-    // In a high-concurrency app, we might want to be more granular, but for POS this ensures exact state match.
+    // 3. Handle Order Items
     if (orderPartial.items && orderPartial.items.length > 0) {
-        // Delete existing items
         await supabase.from('order_items').delete().eq('order_id', order.id);
 
-        // Prepare items with new order_id
         const itemsToInsert = orderPartial.items.map(item => ({
             order_id: order.id,
             product_id: item.product_id,
@@ -111,7 +246,6 @@ export const supabaseService = {
             quantity: item.quantity,
             unit_price: item.unit_price,
             unit: item.unit,
-            // total_price is generated column in DB, don't insert it
         }));
 
         const { error: itemsError } = await supabase
@@ -123,7 +257,7 @@ export const supabaseService = {
         await supabase.from('order_items').delete().eq('order_id', order.id);
     }
 
-    // 4. Update Table Status if attached
+    // 4. Update Table Status
     if (order.table_id) {
         await supabase
             .from('tables')
@@ -131,7 +265,6 @@ export const supabaseService = {
             .eq('id', order.table_id);
     }
 
-    // 5. Return complete order structure
     return {
         ...order,
         items: orderPartial.items || []
@@ -139,6 +272,22 @@ export const supabaseService = {
   },
 
   closeOrder: async (orderId: string) => {
+    if (isMockMode) {
+      await delay(300);
+      const order = MOCK_ORDERS.find(o => o.id === orderId);
+      if (order) {
+        order.status = 'paid';
+        if (order.table_id) {
+          const table = MOCK_TABLES.find(t => t.id === order.table_id);
+          if (table) {
+            table.status = 'available';
+            table.current_order_id = null;
+          }
+        }
+      }
+      return;
+    }
+
     // 1. Get the order to find table_id
     const { data: order, error: fetchError } = await supabase
         .from('orders')
@@ -165,7 +314,6 @@ export const supabaseService = {
     }
   },
 
-  // Keep SQL schema for reference/setup in UI
   getSchemaSQL: () => `
 -- 1. TABLES
 CREATE TABLE IF NOT EXISTS tables (

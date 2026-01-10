@@ -20,6 +20,18 @@ export const useSupabaseRealtime = (onUpdate: () => void) => {
       .on(
         'postgres_changes',
         {
+          event: '*', // Listen to detail changes too
+          schema: 'public',
+          table: 'order_items',
+        },
+        (payload) => {
+          console.log('Realtime Order Item Change:', payload);
+          onUpdate();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
           event: '*',
           schema: 'public',
           table: 'tables',

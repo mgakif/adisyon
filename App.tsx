@@ -169,15 +169,47 @@ export default function App() {
     if (session) refreshData();
   }, [refreshData, session]);
 
-  // Hook up Realtime
-  useSupabaseRealtime(() => {
+  // Hook up Realtime with Deep Refresh Logic
+  useSupabaseRealtime(useCallback(async () => {
     if (session) {
-        refreshData();
+        // 1. Refresh general data (tables status colors, products)
+        await refreshData();
+        
+        // 2. If viewing order history, refresh that
         if (view === 'orders') {
             supabaseService.getDailyOrders().then(setDailyOrders);
         }
+
+        // 3. CRITICAL: If a table is active, refresh ITS content.
+        // This ensures if another device updates Table 1, this device sees it immediately.
+        if (activeTableId) {
+            const activeOrders = await supabaseService.getActiveOrders();
+            const tableOrder = activeOrders.find(o => o.table_id === activeTableId);
+            
+            if (tableOrder) {
+                // We found an active server-side order for this table.
+                // Update local state to match server.
+                setCurrentOrder(tableOrder);
+                setCartItems(tableOrder.items || []);
+            } else {
+                // If table is active locally but has no order on server, 
+                // it might have been paid/closed by another device.
+                // We verify if our local order has an ID (meaning it WAS saved).
+                if (currentOrder.id) {
+                    // It was closed elsewhere. Reset local view or keep as new.
+                    // Let's reset to a clean state for a new order on this table.
+                    setCurrentOrder({ 
+                        table_id: activeTableId, 
+                        items: [], 
+                        total_amount: 0,
+                        status: 'pending' 
+                    });
+                    setCartItems([]);
+                }
+            }
+        }
     }
-  });
+  }, [session, view, activeTableId, currentOrder.id, refreshData]));
 
   // --- AUTH ACTIONS ---
   const handleLogout = async () => {
@@ -278,7 +310,7 @@ export default function App() {
     }));
   };
 
-  const saveOrder = async (shouldPrint: boolean = false) => {
+  const saveOrder = async () => {
     if (cartItems.length === 0) return;
     
     try {
@@ -295,15 +327,8 @@ export default function App() {
         // Refresh tables immediately
         await refreshData();
         
-        if (shouldPrint) {
-            // Trigger print
-            // We use a small timeout to ensure state is updated and receipt is rendered with latest info
-            setTimeout(() => {
-                window.print();
-            }, 100);
-        } else {
-            alert('Sipariş Kaydedildi / Mutfakta!');
-        }
+        // Alert user (Optional: could use a toast)
+        // alert('Sipariş Kaydedildi / Mutfakta!');
     } catch (error) {
         console.error("Save failed", error);
         alert('Hata: Sipariş kaydedilemedi.');
@@ -311,9 +336,8 @@ export default function App() {
   };
 
   const handlePrintOnly = () => {
-    if (cartItems.length > 0) {
-        window.print();
-    }
+    // Just print the current view
+    window.print();
   };
 
   const handlePaymentComplete = async () => {
@@ -484,9 +508,6 @@ export default function App() {
             <span className="text-[10px] text-slate-500">#{currentOrder.order_number || 'YENİ'}</span>
           </div>
           <div className="flex gap-1">
-             <button onClick={handlePrintOnly} className="p-2 text-slate-400 hover:text-emerald-600 transition-colors shrink-0" title="Sadece Yazdır">
-                <ICONS.History size={20} />
-            </button>
             <button onClick={() => setView('tables')} className="p-2 text-slate-400 hover:text-slate-600 transition-colors shrink-0">
                 <ICONS.Close size={20} />
             </button>
@@ -517,13 +538,24 @@ export default function App() {
                 <span className="text-2xl font-bold text-emerald-600">{cartTotal.toFixed(2)} ₺</span>
             </div>
             
-            <div className="grid grid-cols-2 gap-2">
-                <button 
-                    onClick={() => saveOrder(true)}
-                    className="py-3 px-2 bg-orange-100 text-orange-700 text-sm font-bold rounded-xl hover:bg-orange-200 transition"
-                >
-                    Yaz & Kaydet
-                </button>
+            <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-2 gap-2">
+                    <button 
+                        onClick={() => saveOrder()}
+                        disabled={cartItems.length === 0}
+                        className="py-3 px-2 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition shadow-sm disabled:opacity-50"
+                    >
+                        SİPARİŞİ KAYDET
+                    </button>
+                    <button 
+                        onClick={handlePrintOnly}
+                        disabled={cartItems.length === 0}
+                        className="py-3 px-2 bg-slate-200 text-slate-700 text-sm font-bold rounded-xl hover:bg-slate-300 transition shadow-sm disabled:opacity-50 flex items-center justify-center gap-1"
+                    >
+                         <ICONS.History size={16} />
+                         FİŞ YAZ
+                    </button>
+                </div>
                 <button 
                     onClick={() => {
                         if (cartItems.length > 0) {
@@ -535,8 +567,9 @@ export default function App() {
                         }
                     }}
                     disabled={cartItems.length === 0}
-                    className="py-3 px-2 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-200"
+                    className="w-full py-4 bg-emerald-600 text-white text-base font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-200 flex items-center justify-center gap-2"
                 >
+                    <ICONS.Card size={20} />
                     ÖDEME AL
                 </button>
             </div>

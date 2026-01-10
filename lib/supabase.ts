@@ -1,0 +1,11 @@
+import { createClient } from '@supabase/supabase-js';
+
+// Cast import.meta to any to access env variables without type errors
+const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
+const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase Environment Variables!');
+}
+
+export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');

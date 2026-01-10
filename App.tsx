@@ -5,6 +5,7 @@ import { ICONS, CATEGORIES } from './constants';
 import WeightModal from './components/WeightModal';
 import PaymentModal from './components/PaymentModal';
 import ProductFormModal from './components/ProductFormModal';
+import { useSupabaseRealtime } from './hooks/useSupabaseRealtime';
 
 // --- SUB-COMPONENTS (Defined locally for single-file constraints in complex parts) ---
 
@@ -63,7 +64,7 @@ const CartItemRow: React.FC<CartItemRowProps> = ({ item, onRemove }) => (
       </div>
     </div>
     <div className="flex items-center gap-3">
-      <span className="font-bold text-slate-800">{item.total_price.toFixed(2)} ₺</span>
+      <span className="font-bold text-slate-800">{item.total_price?.toFixed(2) || '0.00'} ₺</span>
       <button 
         onClick={onRemove}
         className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded-full transition"
@@ -98,18 +99,26 @@ export default function App() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   // Load Data
-  useEffect(() => {
-    refreshData();
-  }, []);
-
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
+    // Only refresh background data if not in the middle of a transaction to avoid UI jumps
+    // Or optimize to only merge changes. For MVP, full refresh is safer for consistency.
     const [p, t] = await Promise.all([
       supabaseService.getProducts(),
       supabaseService.getTables()
     ]);
     setProducts(p);
     setTables(t);
-  };
+  }, []);
+
+  useEffect(() => {
+    refreshData();
+  }, [refreshData]);
+
+  // Hook up Realtime
+  useSupabaseRealtime(() => {
+    // If table status changes from another device, update our view
+    refreshData();
+  });
 
   // --- ACTIONS ---
 
@@ -120,12 +129,12 @@ export default function App() {
     if (tableId) {
       const table = tables.find(t => t.id === tableId);
       if (table?.current_order_id) {
-        // Fetch existing order (simplified logic for mock)
+        // Fetch existing order from DB
         const activeOrders = await supabaseService.getActiveOrders();
         const existing = activeOrders.find(o => o.id === table.current_order_id);
         if (existing) {
             setCurrentOrder(existing);
-            setCartItems(existing.items);
+            setCartItems(existing.items || []);
             setView('pos');
             return;
         }
@@ -154,7 +163,7 @@ export default function App() {
 
   const addToCart = (product: Product, quantity: number) => {
     const newItem: OrderItem = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(), // Temp ID for UI
       product_id: product.id,
       product_name: product.name,
       quantity: quantity,
@@ -164,14 +173,15 @@ export default function App() {
     };
 
     setCartItems(prev => {
-        // For retail (kg), usually we add separate lines. For service (qty), we might merge.
-        // Let's merge QTY items for cleaner UI
         if (product.unit === 'qty') {
             const existingIdx = prev.findIndex(i => i.product_id === product.id);
             if (existingIdx > -1) {
                 const updated = [...prev];
-                updated[existingIdx].quantity += quantity;
-                updated[existingIdx].total_price = updated[existingIdx].quantity * updated[existingIdx].unit_price;
+                updated[existingIdx] = {
+                    ...updated[existingIdx],
+                    quantity: updated[existingIdx].quantity + quantity,
+                    total_price: (updated[existingIdx].quantity + quantity) * updated[existingIdx].unit_price
+                };
                 return updated;
             }
         }
@@ -186,47 +196,63 @@ export default function App() {
   const saveOrder = async () => {
     if (cartItems.length === 0) return;
     
-    const savedOrder = await supabaseService.upsertOrder({
-        ...currentOrder,
-        items: cartItems,
-        total_amount: cartItems.reduce((acc, i) => acc + i.total_price, 0)
-    });
-
-    setCurrentOrder(savedOrder);
-    
-    // Refresh tables
-    const newTables = await supabaseService.getTables();
-    setTables(newTables);
-    
-    alert('Sipariş Kaydedildi / Mutfakta!');
+    try {
+        const orderPayload = {
+            ...currentOrder,
+            items: cartItems,
+            total_amount: cartItems.reduce((acc, i) => acc + (i.total_price || 0), 0)
+        };
+        
+        const savedOrder = await supabaseService.upsertOrder(orderPayload);
+        setCurrentOrder(savedOrder);
+        setCartItems(savedOrder.items); // Sync with saved state
+        
+        // Refresh tables immediately
+        await refreshData();
+        
+        alert('Sipariş Kaydedildi / Mutfakta!');
+    } catch (error) {
+        console.error("Save failed", error);
+        alert('Hata: Sipariş kaydedilemedi.');
+    }
   };
 
   const handlePaymentComplete = async () => {
     if (currentOrder.id) {
-        await supabaseService.closeOrder(currentOrder.id);
-        setPaymentModalOpen(false);
-        setCartItems([]);
-        setCurrentOrder({});
-        setActiveTableId(null);
-        
-        // Refresh
-        const newTables = await supabaseService.getTables();
-        setTables(newTables);
-        
-        setView('tables');
+        try {
+            await supabaseService.closeOrder(currentOrder.id);
+            setPaymentModalOpen(false);
+            setCartItems([]);
+            setCurrentOrder({});
+            setActiveTableId(null);
+            
+            await refreshData();
+            setView('tables');
+        } catch (error) {
+            console.error("Payment failed", error);
+            alert('Hata: Ödeme tamamlanamadı.');
+        }
     }
   };
 
   // Product Management Actions
   const handleSaveProduct = async (productData: Partial<Product>) => {
-    await supabaseService.saveProduct(productData);
-    await refreshData();
+    try {
+        await supabaseService.saveProduct(productData);
+        await refreshData();
+    } catch (e) {
+        alert('Ürün kaydedilemedi');
+    }
   };
 
   const handleDeleteProduct = async (id: string) => {
     if (window.confirm('Bu ürünü silmek istediğinize emin misiniz?')) {
-        await supabaseService.deleteProduct(id);
-        await refreshData();
+        try {
+            await supabaseService.deleteProduct(id);
+            await refreshData();
+        } catch (e) {
+            alert('Silinemedi');
+        }
     }
   };
 
@@ -236,7 +262,7 @@ export default function App() {
     selectedCategory === 'all' || p.category === selectedCategory
   );
 
-  const cartTotal = cartItems.reduce((acc, item) => acc + item.total_price, 0);
+  const cartTotal = cartItems.reduce((acc, item) => acc + (item.total_price || 0), 0);
 
   // --- VIEWS ---
 
@@ -252,26 +278,33 @@ export default function App() {
           Hızlı Satış (Kasa Önü)
         </button>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        {tables.map(table => (
-          <button
-            key={table.id}
-            onClick={() => handleTableSelect(table.id)}
-            className={`
-              h-32 rounded-2xl flex flex-col items-center justify-center gap-2 border-2 transition-all relative
-              ${table.status === 'occupied' 
-                ? 'bg-red-50 border-red-200 text-red-800 shadow-sm' 
-                : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-400 hover:text-emerald-600 shadow-sm'}
-            `}
-          >
-            <ICONS.Table size={32} />
-            <span className="font-bold">{table.name}</span>
-            {table.status === 'occupied' && (
-                <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-            )}
-          </button>
-        ))}
-      </div>
+      
+      {tables.length === 0 ? (
+          <div className="text-center p-10 text-slate-400">
+              <p>Masa bulunamadı. Lütfen önce veritabanına masa ekleyin veya Schema sekmesini kontrol edin.</p>
+          </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {tables.map(table => (
+            <button
+                key={table.id}
+                onClick={() => handleTableSelect(table.id)}
+                className={`
+                h-32 rounded-2xl flex flex-col items-center justify-center gap-2 border-2 transition-all relative
+                ${table.status === 'occupied' 
+                    ? 'bg-red-50 border-red-200 text-red-800 shadow-sm' 
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-400 hover:text-emerald-600 shadow-sm'}
+                `}
+            >
+                <ICONS.Table size={32} />
+                <span className="font-bold">{table.name}</span>
+                {table.status === 'occupied' && (
+                    <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                )}
+            </button>
+            ))}
+        </div>
+      )}
     </div>
   );
 
@@ -297,6 +330,11 @@ export default function App() {
             {filteredProducts.map(p => (
               <ProductCard key={p.id} product={p} onClick={() => handleProductClick(p)} />
             ))}
+            {filteredProducts.length === 0 && (
+                <div className="col-span-full text-center p-10 text-slate-400">
+                    Ürün bulunamadı.
+                </div>
+            )}
           </div>
         </div>
       </div>
@@ -432,6 +470,7 @@ export default function App() {
             <h1 className="text-xl text-emerald-400">Database Schema (Supabase/PostgreSQL)</h1>
             <button onClick={() => setView('tables')} className="bg-slate-700 px-4 py-2 rounded text-white hover:bg-slate-600">Close</button>
           </div>
+          <p className="text-slate-400 mb-4">Aşağıdaki SQL komutlarını Supabase SQL Editor'de çalıştırarak tabloları oluşturun.</p>
           <pre className="whitespace-pre-wrap text-sm">
             {supabaseService.getSchemaSQL()}
           </pre>

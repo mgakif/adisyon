@@ -1,193 +1,220 @@
+import { supabase } from '../lib/supabase';
 import { Product, Table, Order, OrderItem } from '../types';
 
-// --- MOCK DATA ---
-
-const MOCK_PRODUCTS: Product[] = [
-  { id: 'p1', name: 'Antep Fıstığı (Duble)', price: 850, unit: 'kg', type: 'retail', category: 'nuts' },
-  { id: 'p2', name: 'Kajun Fıstık', price: 600, unit: 'kg', type: 'retail', category: 'nuts' },
-  { id: 'p3', name: 'Karışık Lüks', price: 750, unit: 'kg', type: 'retail', category: 'nuts' },
-  { id: 'p4', name: 'Kuru Üzüm', price: 200, unit: 'kg', type: 'retail', category: 'dried_fruit' },
-  { id: 'p5', name: 'Türk Çayı', price: 25, unit: 'qty', type: 'service', category: 'drinks' },
-  { id: 'p6', name: 'Türk Kahvesi', price: 60, unit: 'qty', type: 'service', category: 'drinks' },
-  { id: 'p7', name: 'Su (0.5L)', price: 15, unit: 'qty', type: 'service', category: 'drinks' },
-  { id: 'p8', name: 'Soda', price: 20, unit: 'qty', type: 'service', category: 'drinks' },
-  { id: 'p9', name: 'Lokum (Güllü)', price: 400, unit: 'kg', type: 'retail', category: 'dessert' },
-];
-
-const MOCK_TABLES: Table[] = Array.from({ length: 12 }, (_, i) => ({
-  id: `t${i + 1}`,
-  name: `Masa ${i + 1}`,
-  status: 'available',
-  current_order_id: null,
-}));
-
-// --- STATE STORAGE (Simulating DB) ---
-let products = [...MOCK_PRODUCTS];
-let tables = [...MOCK_TABLES];
-let orders: Order[] = [];
-
-// --- HELPERS ---
-
-const generateId = () => Math.random().toString(36).substr(2, 9);
-const generateOrderNumber = () => `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
-
-// --- SERVICE METHODS ---
-
 export const supabaseService = {
-  getProducts: async () => {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return products;
+  // --- PRODUCTS ---
+  
+  getProducts: async (): Promise<Product[]> => {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('name');
+    
+    if (error) {
+      console.error('Error fetching products:', error);
+      return [];
+    }
+    return data as Product[];
   },
 
   saveProduct: async (product: Partial<Product>) => {
-    await new Promise(resolve => setTimeout(resolve, 200));
-    if (product.id) {
-        // Update
-        const idx = products.findIndex(p => p.id === product.id);
-        if (idx > -1) {
-            products[idx] = { ...products[idx], ...product } as Product;
-        }
-    } else {
-        // Insert
-        const newProduct = {
-            id: generateId(),
-            ...product
-        } as Product;
-        products.push(newProduct);
-    }
-    return products;
+    // Remove id if it's undefined/empty string to let DB handle generation or use specific ID
+    const productData = { ...product };
+    if (!productData.id) delete productData.id;
+
+    const { data, error } = await supabase
+      .from('products')
+      .upsert(productData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   },
 
   deleteProduct: async (id: string) => {
-    await new Promise(resolve => setTimeout(resolve, 200));
-    products = products.filter(p => p.id !== id);
-    return products;
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
   },
 
-  getTables: async () => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return tables;
+  // --- TABLES ---
+
+  getTables: async (): Promise<Table[]> => {
+    const { data, error } = await supabase
+      .from('tables')
+      .select('*')
+      .order('name'); // Assuming names are like 'Masa 1', 'Masa 2' sorting might need numeric field
+    
+    if (error) {
+        console.error('Error fetching tables', error);
+        return [];
+    }
+    return data as Table[];
   },
 
-  getActiveOrders: async () => {
-    return orders.filter(o => o.status !== 'paid' && o.status !== 'cancelled');
+  // --- ORDERS ---
+
+  getActiveOrders: async (): Promise<Order[]> => {
+    // Fetch orders that are not paid or cancelled
+    // Also fetch their items
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*, items:order_items(*)')
+      .in('status', ['pending', 'preparing', 'served'])
+      .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching active orders', error);
+        return [];
+    }
+    return data as Order[];
   },
 
-  // Create or Update an order
   upsertOrder: async (orderPartial: Partial<Order> & { table_id?: string | null }) => {
-    let order: Order;
-    
-    // Check if updating existing order
-    const existingIndex = orders.findIndex(o => o.id === orderPartial.id);
-    
-    if (existingIndex > -1) {
-      // Update
-      order = { ...orders[existingIndex], ...orderPartial };
-      // Recalculate total
-      order.total_amount = order.items.reduce((sum, item) => sum + item.total_price, 0);
-      orders[existingIndex] = order;
-    } else {
-      // Create New
-      order = {
-        id: generateId(),
-        order_number: generateOrderNumber(),
-        created_at: new Date().toISOString(),
-        status: 'pending',
-        items: [],
-        total_amount: 0,
-        table_id: orderPartial.table_id || null, // Ensure table_id is handled
-        ...orderPartial
-      };
-      
-      // Calculate total for new order
-      order.total_amount = order.items.reduce((sum, item) => sum + item.total_price, 0);
-      orders.push(order);
+    // 1. Prepare Order Data
+    const orderData = {
+        id: orderPartial.id,
+        table_id: orderPartial.table_id || null,
+        status: orderPartial.status || 'pending',
+        total_amount: orderPartial.total_amount || 0,
+        // user_id: ... (if auth is implemented)
+    };
 
-      // If attached to a table, update table status
-      if (order.table_id) {
-        const tableIndex = tables.findIndex(t => t.id === order.table_id);
-        if (tableIndex > -1) {
-          tables[tableIndex] = {
-             ...tables[tableIndex], 
-             status: 'occupied', 
-             current_order_id: order.id 
-          };
-        }
-      }
+    // Remove ID if new (let DB generate or use UUID)
+    if (!orderData.id) delete orderData.id;
+
+    // 2. Upsert Order
+    const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .upsert(orderData)
+        .select()
+        .single();
+
+    if (orderError) throw orderError;
+    if (!order) throw new Error('Failed to create order');
+
+    // 3. Handle Order Items (Strategy: Delete all and re-insert for simplicity in this edit-mode)
+    // In a high-concurrency app, we might want to be more granular, but for POS this ensures exact state match.
+    if (orderPartial.items && orderPartial.items.length > 0) {
+        // Delete existing items
+        await supabase.from('order_items').delete().eq('order_id', order.id);
+
+        // Prepare items with new order_id
+        const itemsToInsert = orderPartial.items.map(item => ({
+            order_id: order.id,
+            product_id: item.product_id,
+            product_name: item.product_name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            unit: item.unit,
+            // total_price is generated column in DB, don't insert it
+        }));
+
+        const { error: itemsError } = await supabase
+            .from('order_items')
+            .insert(itemsToInsert);
+        
+        if (itemsError) throw itemsError;
+    } else if (orderPartial.items && orderPartial.items.length === 0) {
+        await supabase.from('order_items').delete().eq('order_id', order.id);
     }
 
-    return order;
+    // 4. Update Table Status if attached
+    if (order.table_id) {
+        await supabase
+            .from('tables')
+            .update({ status: 'occupied', current_order_id: order.id })
+            .eq('id', order.table_id);
+    }
+
+    // 5. Return complete order structure
+    return {
+        ...order,
+        items: orderPartial.items || []
+    } as Order;
   },
 
   closeOrder: async (orderId: string) => {
-    const idx = orders.findIndex(o => o.id === orderId);
-    if (idx > -1) {
-      const order = orders[idx];
-      orders[idx] = { ...order, status: 'paid' };
-      
-      // Free up table if exists
-      if (order.table_id) {
-        const tIdx = tables.findIndex(t => t.id === order.table_id);
-        if (tIdx > -1) {
-          tables[tIdx] = { ...tables[tIdx], status: 'available', current_order_id: null };
-        }
-      }
-      return orders[idx];
+    // 1. Get the order to find table_id
+    const { data: order, error: fetchError } = await supabase
+        .from('orders')
+        .select('table_id')
+        .eq('id', orderId)
+        .single();
+    
+    if (fetchError) throw fetchError;
+
+    // 2. Update Order Status
+    const { error: updateError } = await supabase
+        .from('orders')
+        .update({ status: 'paid' })
+        .eq('id', orderId);
+    
+    if (updateError) throw updateError;
+
+    // 3. Free the table
+    if (order?.table_id) {
+        await supabase
+            .from('tables')
+            .update({ status: 'available', current_order_id: null })
+            .eq('id', order.table_id);
     }
-    throw new Error('Order not found');
   },
 
-  // Mocks the SQL Schema requested in the prompt
+  // Keep SQL schema for reference/setup in UI
   getSchemaSQL: () => `
 -- 1. TABLES
-CREATE TABLE tables (
+CREATE TABLE IF NOT EXISTS tables (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
-  status TEXT DEFAULT 'available', -- available, occupied
-  current_order_id UUID -- Relation to active order
+  status TEXT DEFAULT 'available',
+  current_order_id UUID
 );
 
 -- 2. PRODUCTS
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   price DECIMAL(10,2) NOT NULL,
-  unit TEXT CHECK (unit IN ('kg', 'qty', 'portion')),
-  product_type TEXT CHECK (product_type IN ('retail', 'service')),
+  unit TEXT,
+  product_type TEXT,
   category TEXT,
   stock DECIMAL(10,3) DEFAULT 0
 );
 
 -- 3. ORDERS
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   order_number SERIAL,
-  table_id UUID REFERENCES tables(id), -- NULL for Quick Sale (Kasa)
-  status TEXT DEFAULT 'pending', -- pending, paid, cancelled
+  table_id UUID REFERENCES tables(id),
+  status TEXT DEFAULT 'pending',
   total_amount DECIMAL(10,2) DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  user_id UUID REFERENCES auth.users(id) -- Who created the order
+  user_id UUID
 );
 
--- 4. ORDER ITEMS (The Critical Part)
-CREATE TABLE order_items (
+-- 4. ORDER ITEMS
+CREATE TABLE IF NOT EXISTS order_items (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
   product_id UUID REFERENCES products(id),
-  product_name TEXT, -- Snapshot of name at time of sale
-  quantity DECIMAL(10,3) NOT NULL, -- Stored as Float: 0.250 for 250g, 2.0 for 2 qty
-  unit_price DECIMAL(10,2) NOT NULL, -- Snapshot of price
+  product_name TEXT,
+  quantity DECIMAL(10,3) NOT NULL,
+  unit_price DECIMAL(10,2) NOT NULL,
   total_price DECIMAL(10,2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
-  unit TEXT NOT NULL -- 'kg' or 'qty'
+  unit TEXT NOT NULL
 );
 
--- 5. PAYMENTS (Split Payments)
-CREATE TABLE payments (
+-- 5. PAYMENTS
+CREATE TABLE IF NOT EXISTS payments (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   order_id UUID REFERENCES orders(id),
   amount DECIMAL(10,2) NOT NULL,
-  method TEXT CHECK (method IN ('cash', 'credit_card', 'discount')),
+  method TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
   `

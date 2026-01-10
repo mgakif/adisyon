@@ -15,7 +15,8 @@ import {
   History,
   ChefHat,
   Package,
-  Menu // New Icon for Sidebar Toggle
+  Menu, // New Icon for Sidebar Toggle
+  Database
 } from 'lucide-react';
 
 export const ICONS = {
@@ -35,7 +36,8 @@ export const ICONS = {
   History: History,
   Kitchen: ChefHat,
   Package: Package,
-  Menu: Menu
+  Menu: Menu,
+  Database: Database
 };
 
 export const CATEGORIES = [

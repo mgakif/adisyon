@@ -214,6 +214,31 @@ export const supabaseService = {
     return data as Order[];
   },
 
+  getDailyOrders: async (): Promise<Order[]> => {
+    if (isMockMode) {
+      // Mock: Return all orders
+      return MOCK_ORDERS.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*, items:order_items(*)')
+      .gte('created_at', today.toISOString())
+      .lt('created_at', tomorrow.toISOString())
+      .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching daily orders', error);
+        return [];
+    }
+    return data as Order[];
+  },
+
   upsertOrder: async (orderPartial: Partial<Order> & { table_id?: string | null }) => {
     if (isMockMode) {
       await delay(500);

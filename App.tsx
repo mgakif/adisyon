@@ -3,6 +3,7 @@ import { supabaseService } from './services/supabaseService';
 import { Product, Table, Order, OrderItem, ProductCategory } from './types';
 import { ICONS, CATEGORIES } from './constants';
 import WeightModal from './components/WeightModal';
+import EditQuantityModal from './components/EditQuantityModal';
 import PaymentModal from './components/PaymentModal';
 import ProductFormModal from './components/ProductFormModal';
 import TableFormModal from './components/TableFormModal'; 
@@ -21,24 +22,35 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) => (
   <button 
     onClick={onClick}
     className={`
-      relative overflow-hidden rounded-xl p-3 flex flex-col justify-between text-left h-28 transition-all
+      relative overflow-hidden rounded-xl px-3 py-2 flex items-center justify-between text-left h-16 transition-all border
       ${product.type === 'retail' 
-        ? 'bg-amber-50 border-2 border-amber-100 hover:border-amber-300 hover:bg-amber-100 text-amber-900' 
-        : 'bg-slate-50 border-2 border-slate-100 hover:border-slate-300 hover:bg-slate-100 text-slate-900'}
-      active:scale-95 shadow-sm
+        ? 'bg-amber-50 border-amber-200 hover:border-amber-300 hover:bg-amber-100 text-amber-950' 
+        : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-900'}
+      active:scale-95 shadow-sm group
     `}
   >
-    <div className="flex justify-between items-start w-full gap-1 overflow-hidden">
-      <span className="font-bold text-sm leading-tight whitespace-nowrap truncate flex-1 block">
+    {/* Left: Icon & Name */}
+    <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
+      <div className={`
+        w-8 h-8 rounded-lg flex items-center justify-center shrink-0
+        ${product.type === 'retail' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}
+      `}>
+         {product.type === 'retail' ? <ICONS.Retail size={16} /> : <ICONS.Service size={16} />}
+      </div>
+      <span className="font-bold text-sm leading-tight truncate">
         {product.name}
       </span>
-      {product.type === 'retail' ? <ICONS.Retail size={14} className="opacity-30 shrink-0" /> : <ICONS.Service size={14} className="opacity-30 shrink-0" />}
     </div>
-    <div className="mt-auto">
-      <div className="flex items-baseline gap-1 whitespace-nowrap">
+
+    {/* Right: Price */}
+    <div className="flex flex-col items-end shrink-0">
+      <div className="flex items-baseline gap-0.5">
         <span className="text-lg font-bold">{product.price}</span>
-        <span className="text-[10px] opacity-70">₺/{product.unit}</span>
+        <span className="text-xs font-normal opacity-80">₺</span>
       </div>
+      <span className="text-[10px] opacity-60 uppercase font-medium bg-black/5 px-1.5 rounded-sm">
+        {product.unit}
+      </span>
     </div>
   </button>
 );
@@ -47,11 +59,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) => (
 interface CartItemRowProps {
   item: OrderItem;
   onRemove: () => void;
+  onEdit: () => void;
 }
 
-const CartItemRow: React.FC<CartItemRowProps> = ({ item, onRemove }) => (
+const CartItemRow: React.FC<CartItemRowProps> = ({ item, onRemove, onEdit }) => (
   <div className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl shadow-sm animate-in slide-in-from-right-2">
-    <div className="flex-1 overflow-hidden">
+    <div className="flex-1 overflow-hidden" onClick={onEdit}>
       <div className="font-medium text-slate-900 whitespace-nowrap truncate pr-2">{item.product_name}</div>
       <div className="text-xs text-slate-500 mt-0.5">
         {item.unit === 'kg' 
@@ -67,14 +80,23 @@ const CartItemRow: React.FC<CartItemRowProps> = ({ item, onRemove }) => (
         }
       </div>
     </div>
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2">
       <span className="font-bold text-slate-800 whitespace-nowrap">{item.total_price?.toFixed(2) || '0.00'} ₺</span>
-      <button 
-        onClick={onRemove}
-        className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded-full transition"
-      >
-        <ICONS.Delete size={18} />
-      </button>
+      
+      <div className="flex gap-1">
+        <button 
+            onClick={onEdit}
+            className="text-blue-400 hover:text-blue-600 p-1.5 hover:bg-blue-50 rounded-full transition"
+        >
+            <ICONS.Settings size={16} />
+        </button>
+        <button 
+            onClick={onRemove}
+            className="text-red-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-full transition"
+        >
+            <ICONS.Delete size={16} />
+        </button>
+      </div>
     </div>
   </div>
 );
@@ -104,6 +126,13 @@ export default function App() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   
+  // Editing Cart Item
+  const [editQuantityModalOpen, setEditQuantityModalOpen] = useState(false);
+  const [editingCartItem, setEditingCartItem] = useState<OrderItem | null>(null);
+
+  // Daily Orders State
+  const [dailyOrders, setDailyOrders] = useState<Order[]>([]);
+
   // Product Management Modal
   const [productFormOpen, setProductFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -128,13 +157,25 @@ export default function App() {
     setTables(t);
   }, []);
 
+  // Fetch daily orders when view changes to 'orders'
+  useEffect(() => {
+    if (view === 'orders') {
+        supabaseService.getDailyOrders().then(setDailyOrders);
+    }
+  }, [view]);
+
   useEffect(() => {
     if (session) refreshData();
   }, [refreshData, session]);
 
   // Hook up Realtime
   useSupabaseRealtime(() => {
-    if (session) refreshData();
+    if (session) {
+        refreshData();
+        if (view === 'orders') {
+            supabaseService.getDailyOrders().then(setDailyOrders);
+        }
+    }
   });
 
   // --- AUTH ACTIONS ---
@@ -214,6 +255,26 @@ export default function App() {
 
   const removeFromCart = (itemId: string) => {
     setCartItems(prev => prev.filter(i => i.id !== itemId));
+  };
+
+  const handleEditCartItem = (item: OrderItem) => {
+    setEditingCartItem(item);
+    setEditQuantityModalOpen(true);
+  };
+
+  const updateCartItemQuantity = (newQuantity: number) => {
+    if (!editingCartItem) return;
+
+    setCartItems(prev => prev.map(item => {
+        if (item.id === editingCartItem.id) {
+            return {
+                ...item,
+                quantity: newQuantity,
+                total_price: newQuantity * item.unit_price
+            };
+        }
+        return item;
+    }));
   };
 
   const saveOrder = async () => {
@@ -382,7 +443,7 @@ export default function App() {
         </div>
         {/* Grid */}
         <div className="flex-1 overflow-y-auto p-3 md:p-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {filteredProducts.map(p => (
               <ProductCard key={p.id} product={p} onClick={() => handleProductClick(p)} />
             ))}
@@ -416,7 +477,14 @@ export default function App() {
                 <p className="text-sm">Sepet Boş</p>
             </div>
           ) : (
-            cartItems.map(item => <CartItemRow key={item.id} item={item} onRemove={() => removeFromCart(item.id)} />)
+            cartItems.map(item => (
+                <CartItemRow 
+                    key={item.id} 
+                    item={item} 
+                    onRemove={() => removeFromCart(item.id)}
+                    onEdit={() => handleEditCartItem(item)}
+                />
+            ))
           )}
         </div>
 
@@ -584,6 +652,69 @@ export default function App() {
       </div>
   );
 
+  const renderOrdersView = () => (
+    <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
+        <div className="bg-white p-4 md:p-6 border-b border-slate-200 flex justify-between items-center shrink-0">
+            <h2 className="text-xl md:text-2xl font-bold text-slate-800">Günlük Sipariş Geçmişi</h2>
+            <div className="text-sm text-slate-500 font-medium bg-slate-100 px-3 py-1 rounded-lg">
+                {new Date().toLocaleDateString('tr-TR')}
+            </div>
+        </div>
+        
+        <div className="flex-1 overflow-auto p-4 md:p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+                <table className="w-full text-left min-w-[600px]">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th className="p-4 font-semibold text-slate-600 text-sm">Sipariş No</th>
+                            <th className="p-4 font-semibold text-slate-600 text-sm">Masa / Konum</th>
+                            <th className="p-4 font-semibold text-slate-600 text-sm">Saat</th>
+                            <th className="p-4 font-semibold text-slate-600 text-sm">Tutar</th>
+                            <th className="p-4 font-semibold text-slate-600 text-sm">Durum</th>
+                            <th className="p-4 font-semibold text-slate-600 text-sm">İçerik</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {dailyOrders.length === 0 ? (
+                             <tr>
+                                <td colSpan={6} className="p-8 text-center text-slate-400">Bugün henüz sipariş alınmadı.</td>
+                             </tr>
+                        ) : (
+                            dailyOrders.map(order => (
+                                <tr key={order.id} className="hover:bg-slate-50 transition">
+                                    <td className="p-4 font-mono font-bold text-slate-700 text-sm">#{order.order_number}</td>
+                                    <td className="p-4 text-slate-800 text-sm font-medium">
+                                        {order.table_id 
+                                            ? tables.find(t => t.id === order.table_id)?.name || 'Bilinmeyen Masa'
+                                            : <span className="text-orange-600 bg-orange-50 px-2 py-0.5 rounded text-xs">Hızlı Satış</span>
+                                        }
+                                    </td>
+                                    <td className="p-4 text-slate-500 text-sm">
+                                        {new Date(order.created_at).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})}
+                                    </td>
+                                    <td className="p-4 font-bold text-emerald-600 text-sm">{order.total_amount.toFixed(2)} ₺</td>
+                                    <td className="p-4 text-sm">
+                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase
+                                            ${order.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 
+                                              order.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}
+                                        `}>
+                                            {order.status === 'paid' ? 'Ödendi' : 
+                                             order.status === 'pending' ? 'Bekliyor' : order.status}
+                                        </span>
+                                    </td>
+                                    <td className="p-4 text-slate-500 text-xs max-w-[200px] truncate">
+                                        {order.items?.map(i => `${i.product_name} (${i.quantity})`).join(', ')}
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+  );
+
   const renderSchema = () => (
       <div className="p-8 h-full overflow-y-auto bg-slate-900 text-slate-300 font-mono">
           <div className="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
@@ -631,6 +762,13 @@ export default function App() {
                 <span className="font-semibold">Satış Ekranı</span>
             </button>
             <button 
+                onClick={() => { setView('orders'); setSidebarOpen(false); }} 
+                className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all w-full text-left ${view === 'orders' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+            >
+                <ICONS.History size={20} />
+                <span className="font-semibold">Sipariş Geçmişi</span>
+            </button>
+            <button 
                 onClick={() => { setView('management'); setSidebarOpen(false); }} 
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all w-full text-left ${view === 'management' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
             >
@@ -641,7 +779,7 @@ export default function App() {
                 onClick={() => { setView('schema'); setSidebarOpen(false); }} 
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all w-full text-left ${view === 'schema' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
             >
-                <ICONS.History size={20} />
+                <ICONS.Database size={20} />
                 <span className="font-semibold">Veri Yapısı</span>
             </button>
         </div>
@@ -693,6 +831,7 @@ export default function App() {
         <main className="flex-1 overflow-hidden relative">
             {view === 'tables' && renderTablesView()}
             {view === 'pos' && renderPOSView()}
+            {view === 'orders' && renderOrdersView()}
             {view === 'schema' && renderSchema()}
             {view === 'management' && renderManagementView()}
         </main>
@@ -704,6 +843,13 @@ export default function App() {
         product={selectedProductForWeight}
         onClose={() => setWeightModalOpen(false)}
         onConfirm={addToCart}
+      />
+      
+      <EditQuantityModal
+        isOpen={editQuantityModalOpen}
+        item={editingCartItem}
+        onClose={() => setEditQuantityModalOpen(false)}
+        onConfirm={updateCartItemQuantity}
       />
 
       <PaymentModal

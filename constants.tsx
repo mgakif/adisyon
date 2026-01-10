@@ -16,7 +16,8 @@ import {
   ChefHat,
   Package,
   Menu,
-  Database
+  Database,
+  QrCode
 } from 'lucide-react';
 
 export const ICONS = {
@@ -37,7 +38,8 @@ export const ICONS = {
   Kitchen: ChefHat,
   Package: Package,
   Menu: Menu,
-  Database: Database
+  Database: Database,
+  QrCode: QrCode
 };
 
 export const CATEGORIES = [

@@ -8,6 +8,8 @@ import PaymentModal from './components/PaymentModal';
 import ProductFormModal from './components/ProductFormModal';
 import TableFormModal from './components/TableFormModal'; 
 import Login from './components/Login';
+import PublicMenu from './components/PublicMenu'; // Import Public Menu
+import QRCodeModal from './components/QRCodeModal'; // Import QR Modal
 import { ReceiptPrinter } from './components/ReceiptPrinter';
 import { useSupabaseRealtime } from './hooks/useSupabaseRealtime';
 
@@ -105,6 +107,16 @@ const CartItemRow: React.FC<CartItemRowProps> = ({ item, onRemove, onEdit }) => 
 // --- MAIN APP COMPONENT ---
 
 export default function App() {
+  // Check for Public Menu Mode first
+  const [isCustomerMode, setIsCustomerMode] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('menu') === 'true') {
+        setIsCustomerMode(true);
+    }
+  }, []);
+
   // Auth State
   const [session, setSession] = useState<any>(null);
 
@@ -140,13 +152,20 @@ export default function App() {
 
   // Table Management Modal
   const [tableFormOpen, setTableFormOpen] = useState(false);
+  
+  // QR Code Modal
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [selectedTableForQR, setSelectedTableForQR] = useState<Table | null>(null);
 
   // Check Auth on Mount
   useEffect(() => {
-    supabaseService.getCurrentUser().then(user => {
-        if (user) setSession(user);
-    });
-  }, []);
+    // Only check auth if NOT in customer mode
+    if (!isCustomerMode) {
+        supabaseService.getCurrentUser().then(user => {
+            if (user) setSession(user);
+        });
+    }
+  }, [isCustomerMode]);
 
   // Load Data
   const refreshData = useCallback(async () => {
@@ -160,18 +179,18 @@ export default function App() {
 
   // Fetch daily orders when view changes to 'orders'
   useEffect(() => {
-    if (view === 'orders') {
+    if (view === 'orders' && !isCustomerMode) {
         supabaseService.getDailyOrders().then(setDailyOrders);
     }
-  }, [view]);
+  }, [view, isCustomerMode]);
 
   useEffect(() => {
-    if (session) refreshData();
-  }, [refreshData, session]);
+    if (session && !isCustomerMode) refreshData();
+  }, [refreshData, session, isCustomerMode]);
 
   // Hook up Realtime with Deep Refresh Logic
   useSupabaseRealtime(useCallback(async () => {
-    if (session) {
+    if (session && !isCustomerMode) {
         // 1. Refresh general data (tables status colors, products)
         await refreshData();
         
@@ -181,23 +200,15 @@ export default function App() {
         }
 
         // 3. CRITICAL: If a table is active, refresh ITS content.
-        // This ensures if another device updates Table 1, this device sees it immediately.
         if (activeTableId) {
             const activeOrders = await supabaseService.getActiveOrders();
             const tableOrder = activeOrders.find(o => o.table_id === activeTableId);
             
             if (tableOrder) {
-                // We found an active server-side order for this table.
-                // Update local state to match server.
                 setCurrentOrder(tableOrder);
                 setCartItems(tableOrder.items || []);
             } else {
-                // If table is active locally but has no order on server, 
-                // it might have been paid/closed by another device.
-                // We verify if our local order has an ID (meaning it WAS saved).
                 if (currentOrder.id) {
-                    // It was closed elsewhere. Reset local view or keep as new.
-                    // Let's reset to a clean state for a new order on this table.
                     setCurrentOrder({ 
                         table_id: activeTableId, 
                         items: [], 
@@ -209,7 +220,12 @@ export default function App() {
             }
         }
     }
-  }, [session, view, activeTableId, currentOrder.id, refreshData]));
+  }, [session, view, activeTableId, currentOrder.id, refreshData, isCustomerMode]));
+
+  // --- EARLY RETURN FOR CUSTOMER MODE ---
+  if (isCustomerMode) {
+      return <PublicMenu />;
+  }
 
   // --- AUTH ACTIONS ---
   const handleLogout = async () => {
@@ -689,10 +705,20 @@ export default function App() {
                                             {t.status === 'occupied' ? 'Dolu' : 'Müsait'}
                                         </span>
                                     </td>
-                                    <td className="p-4 text-right">
+                                    <td className="p-4 text-right flex justify-end gap-2">
+                                        <button 
+                                            onClick={() => {
+                                                setSelectedTableForQR(t);
+                                                setQrModalOpen(true);
+                                            }}
+                                            className="text-slate-600 hover:bg-slate-100 p-2 rounded transition flex items-center gap-2 text-xs font-medium"
+                                        >
+                                            <ICONS.QrCode size={14} />
+                                            QR
+                                        </button>
                                         <button 
                                             onClick={(e) => handleDeleteTable(e, t)}
-                                            className="text-red-600 hover:bg-red-50 p-2 rounded transition flex items-center gap-2 ml-auto text-xs font-medium"
+                                            className="text-red-600 hover:bg-red-50 p-2 rounded transition flex items-center gap-2 text-xs font-medium"
                                         >
                                             <ICONS.Delete size={14} />
                                             Sil
@@ -933,6 +959,12 @@ export default function App() {
         isOpen={tableFormOpen}
         onClose={() => setTableFormOpen(false)}
         onSave={handleSaveTable}
+      />
+
+      <QRCodeModal 
+        isOpen={qrModalOpen}
+        table={selectedTableForQR}
+        onClose={() => setQrModalOpen(false)}
       />
     </div>
   );

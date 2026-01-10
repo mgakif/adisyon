@@ -995,7 +995,7 @@ export default function App() {
       </div>
 
       {/* Right: Cart Drawer */}
-      <div className="w-full md:w-80 lg:w-96 bg-white border-l border-slate-200 flex flex-col shadow-xl z-20 shrink-0 h-full">
+      <div className="w-full md:w-80 lg:w-96 bg-white border-l border-slate-200 flex flex-col shadow-xl z-20 shrink-0 h-full overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
           <div className="flex flex-col overflow-hidden min-w-0">
             <h3 className="font-bold text-slate-800 whitespace-nowrap truncate">
@@ -1010,9 +1010,9 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/50 min-h-0 max-h-full">
+        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/50 min-h-0">
           {cartItems.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-60">
+            <div className="flex flex-col items-center justify-center text-slate-400 opacity-60 py-8">
                 <ICONS.Retail size={40} className="mb-2" />
                 <p className="text-sm">Sepet Boş</p>
             </div>
@@ -1028,7 +1028,7 @@ export default function App() {
           )}
         </div>
 
-        <div className="p-4 bg-white border-t border-slate-200 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] shrink-0 relative z-10">
+        <div className="p-4 bg-white border-t border-slate-200 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] shrink-0">
             <div className="flex justify-between items-center mb-3">
                 <span className="text-slate-500 text-sm">Toplam</span>
                 <span className="text-2xl font-bold text-emerald-600">{cartTotal.toFixed(2)} ₺</span>

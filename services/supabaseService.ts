@@ -13,12 +13,12 @@ let MOCK_PRODUCTS: Product[] = [
 ];
 
 let MOCK_TABLES: Table[] = [
-  { id: 't1', name: 'Masa 1', status: 'available', current_order_id: null },
-  { id: 't2', name: 'Masa 2', status: 'available', current_order_id: null },
-  { id: 't3', name: 'Masa 3', status: 'available', current_order_id: null },
-  { id: 't4', name: 'Masa 4', status: 'available', current_order_id: null },
-  { id: 't5', name: 'Bahçe 1', status: 'available', current_order_id: null },
-  { id: 't6', name: 'Bahçe 2', status: 'available', current_order_id: null },
+  { id: 't1', name: 'Masa 1', status: 'available', current_order_id: null, needs_service: false },
+  { id: 't2', name: 'Masa 2', status: 'available', current_order_id: null, needs_service: false },
+  { id: 't3', name: 'Masa 3', status: 'available', current_order_id: null, needs_service: false },
+  { id: 't4', name: 'Masa 4', status: 'available', current_order_id: null, needs_service: false },
+  { id: 't5', name: 'Bahçe 1', status: 'available', current_order_id: null, needs_service: false },
+  { id: 't6', name: 'Bahçe 2', status: 'available', current_order_id: null, needs_service: false },
 ];
 
 let MOCK_ORDERS: Order[] = [];
@@ -161,7 +161,8 @@ export const supabaseService = {
       const newTable = {
         ...table,
         id: table.id || Math.random().toString(36).substr(2, 9),
-        status: table.status || 'available'
+        status: table.status || 'available',
+        needs_service: false
       } as Table;
       MOCK_TABLES.push(newTable);
       return newTable;
@@ -194,17 +195,33 @@ export const supabaseService = {
     if (error) throw error;
   },
 
+  toggleTableService: async (tableId: string, needsService: boolean) => {
+    if (isMockMode) {
+        const t = MOCK_TABLES.find(table => table.id === tableId);
+        if (t) t.needs_service = needsService;
+        return;
+    }
+    
+    const { error } = await supabase
+        .from('tables')
+        .update({ needs_service: needsService })
+        .eq('id', tableId);
+    
+    if (error) throw error;
+  },
+
   // --- ORDERS ---
 
   getActiveOrders: async (): Promise<Order[]> => {
     if (isMockMode) {
-      return MOCK_ORDERS.filter(o => ['pending', 'preparing', 'served'].includes(o.status));
+      return MOCK_ORDERS.filter(o => ['pending', 'preparing', 'served'].includes(o.status) && !o.is_deleted);
     }
 
     const { data, error } = await supabase
       .from('orders')
       .select('*, items:order_items(*)')
       .in('status', ['pending', 'preparing', 'served'])
+      .eq('is_deleted', false)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -239,6 +256,21 @@ export const supabaseService = {
     return data as Order[];
   },
 
+  toggleOrderDelete: async (orderId: string, isDeleted: boolean) => {
+    if (isMockMode) {
+        const o = MOCK_ORDERS.find(order => order.id === orderId);
+        if (o) o.is_deleted = isDeleted;
+        return;
+    }
+    
+    const { error } = await supabase
+        .from('orders')
+        .update({ is_deleted: isDeleted })
+        .eq('id', orderId);
+
+    if (error) throw error;
+  },
+
   upsertOrder: async (orderPartial: Partial<Order> & { table_id?: string | null }) => {
     if (isMockMode) {
       await delay(500);
@@ -253,7 +285,8 @@ export const supabaseService = {
           total_amount: orderPartial.total_amount || 0,
           created_at: new Date().toISOString(),
           order_number: Math.floor(Math.random() * 1000).toString(),
-          items: []
+          items: [],
+          is_deleted: false
         } as Order;
         MOCK_ORDERS.push(order);
       } else {
@@ -290,6 +323,7 @@ export const supabaseService = {
         table_id: orderPartial.table_id || null,
         status: orderPartial.status || 'pending',
         total_amount: orderPartial.total_amount || 0,
+        is_deleted: false
     };
 
     if (!orderData.id) delete orderData.id;
@@ -389,7 +423,8 @@ CREATE TABLE IF NOT EXISTS tables (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   status TEXT DEFAULT 'available',
-  current_order_id UUID
+  current_order_id UUID,
+  needs_service BOOLEAN DEFAULT FALSE
 );
 
 -- 2. PRODUCTS
@@ -411,7 +446,8 @@ CREATE TABLE IF NOT EXISTS orders (
   status TEXT DEFAULT 'pending',
   total_amount DECIMAL(10,2) DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  user_id UUID
+  user_id UUID,
+  is_deleted BOOLEAN DEFAULT FALSE
 );
 
 -- 4. ORDER ITEMS

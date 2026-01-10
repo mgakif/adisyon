@@ -7,7 +7,8 @@ const PublicMenu = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [tableName, setTableName] = useState<string>('');
+  const [table, setTable] = useState<Table | null>(null);
+  const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'called'>('idle');
 
   useEffect(() => {
     // 1. Get Table Name from URL if exists
@@ -21,8 +22,8 @@ const PublicMenu = () => {
 
         if (tableId) {
           const tables = await supabaseService.getTables();
-          const table = tables.find(t => t.id === tableId);
-          if (table) setTableName(table.name);
+          const t = tables.find(t => t.id === tableId);
+          if (t) setTable(t);
         }
       } catch (error) {
         console.error("Menu load error", error);
@@ -33,6 +34,19 @@ const PublicMenu = () => {
 
     loadData();
   }, []);
+
+  const handleCallWaiter = async () => {
+    if (!table) return;
+    setCallStatus('calling');
+    try {
+        await supabaseService.toggleTableService(table.id, true);
+        setCallStatus('called');
+        setTimeout(() => setCallStatus('idle'), 5000); // Reset button after 5s but state stays in DB
+    } catch (e) {
+        alert('Garson çağrısı yapılamadı.');
+        setCallStatus('idle');
+    }
+  };
 
   const filteredProducts = products.filter(p => 
     selectedCategory === 'all' || p.category === selectedCategory
@@ -48,13 +62,13 @@ const PublicMenu = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20 font-sans">
+    <div className="min-h-screen bg-slate-50 pb-32 font-sans relative">
       {/* Header */}
       <div className="bg-slate-900 text-white p-6 rounded-b-3xl shadow-xl sticky top-0 z-20">
         <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-2xl font-bold">Kuruyemiş & Cafe</h1>
-            {tableName && <p className="text-emerald-400 text-sm font-medium">📍 {tableName}</p>}
+            {table && <p className="text-emerald-400 text-sm font-medium">📍 {table.name}</p>}
           </div>
           <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
             <ICONS.Menu size={20} />
@@ -117,12 +131,30 @@ const PublicMenu = () => {
         )}
       </div>
 
-      {/* Footer / Floating Info */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none">
-        <div className="bg-slate-900 text-white text-xs p-3 rounded-xl text-center shadow-lg mx-auto max-w-sm pointer-events-auto opacity-90">
-          Sipariş vermek için lütfen garsona seslenin.
+      {/* Footer / Call Waiter */}
+      {table && (
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-50 via-slate-50 to-transparent z-30 flex justify-center">
+             <button
+                onClick={handleCallWaiter}
+                disabled={callStatus !== 'idle'}
+                className={`
+                    flex items-center gap-3 px-8 py-4 rounded-full font-bold shadow-xl transition-all transform active:scale-95
+                    ${callStatus === 'called' 
+                        ? 'bg-emerald-600 text-white' 
+                        : callStatus === 'calling'
+                            ? 'bg-slate-200 text-slate-500'
+                            : 'bg-amber-500 text-white hover:bg-amber-600'
+                    }
+                `}
+             >
+                <ICONS.Bell size={24} className={callStatus === 'idle' ? 'animate-bounce' : ''} />
+                <span>
+                    {callStatus === 'called' ? 'Garson Geliyor!' : 
+                     callStatus === 'calling' ? 'Çağrılıyor...' : 'Garson Çağır'}
+                </span>
+             </button>
         </div>
-      </div>
+      )}
     </div>
   );
 };

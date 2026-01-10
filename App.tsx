@@ -145,6 +145,7 @@ export default function App() {
 
   // Daily Orders State
   const [dailyOrders, setDailyOrders] = useState<Order[]>([]);
+  const [showDeletedOrders, setShowDeletedOrders] = useState(false);
 
   // Product Management Modal
   const [productFormOpen, setProductFormOpen] = useState(false);
@@ -263,6 +264,16 @@ export default function App() {
     });
     setCartItems([]);
     setView('pos');
+  };
+
+  const handleResolveService = async (e: React.MouseEvent, tableId: string) => {
+    e.stopPropagation();
+    try {
+        await supabaseService.toggleTableService(tableId, false);
+        await refreshData();
+    } catch (error) {
+        console.error("Couldn't resolve service", error);
+    }
   };
 
   const handleProductClick = (product: Product) => {
@@ -425,6 +436,25 @@ export default function App() {
     }
   };
 
+  // Order History Actions
+  const handleToggleOrderDelete = async (order: Order) => {
+    const newStatus = !order.is_deleted;
+    const confirmMsg = newStatus 
+        ? 'Bu siparişi silmek istediğinize emin misiniz?' 
+        : 'Bu siparişi geri almak istediğinize emin misiniz?';
+    
+    if (window.confirm(confirmMsg)) {
+        try {
+            await supabaseService.toggleOrderDelete(order.id, newStatus);
+            // Manually update local state for immediate feedback
+            setDailyOrders(prev => prev.map(o => o.id === order.id ? {...o, is_deleted: newStatus} : o));
+        } catch (e) {
+            console.error(e);
+            alert('İşlem başarısız.');
+        }
+    }
+  };
+
   // --- RENDER HELPERS ---
 
   const filteredProducts = products.filter(p => 
@@ -437,6 +467,155 @@ export default function App() {
   const activeTableName = activeTableId ? tables.find(t => t.id === activeTableId)?.name : 'Hızlı Satış';
 
   // --- VIEWS ---
+
+  const renderManagementView = () => (
+    <div className="flex flex-col h-full bg-slate-50">
+      <div className="bg-white p-4 md:p-6 border-b border-slate-200 flex justify-between items-center shrink-0">
+        <h2 className="text-xl md:text-2xl font-bold text-slate-800">Yönetim Paneli</h2>
+        <div className="flex bg-slate-100 p-1 rounded-lg">
+          <button
+            onClick={() => setManagementTab('products')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              managementTab === 'products' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Ürünler
+          </button>
+          <button
+            onClick={() => setManagementTab('tables')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              managementTab === 'tables' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Masalar
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto p-4 md:p-6">
+        {managementTab === 'products' ? (
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <button
+                onClick={() => {
+                  setEditingProduct(null);
+                  setProductFormOpen(true);
+                }}
+                className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-emerald-700 transition"
+              >
+                <ICONS.Plus size={18} />
+                Yeni Ürün Ekle
+              </button>
+            </div>
+            
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                  <tr>
+                    <th className="p-4 text-sm font-semibold text-slate-600">Ürün Adı</th>
+                    <th className="p-4 text-sm font-semibold text-slate-600">Fiyat</th>
+                    <th className="p-4 text-sm font-semibold text-slate-600">Kategori</th>
+                    <th className="p-4 text-sm font-semibold text-slate-600 text-right">İşlemler</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {products.map(product => (
+                    <tr key={product.id} className="hover:bg-slate-50">
+                      <td className="p-4 font-medium text-slate-800 flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${product.type === 'retail' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-600'}`}>
+                           {product.type === 'retail' ? <ICONS.Retail size={16} /> : <ICONS.Service size={16} />}
+                        </div>
+                        {product.name}
+                      </td>
+                      <td className="p-4 text-slate-600">
+                        {product.price.toFixed(2)} ₺ / {product.unit}
+                      </td>
+                      <td className="p-4">
+                        <span className="px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                            {CATEGORIES.find(c => c.id === product.category)?.label || product.category}
+                        </span>
+                      </td>
+                      <td className="p-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={() => {
+                              setEditingProduct(product);
+                              setProductFormOpen(true);
+                            }}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                          >
+                            <ICONS.Settings size={18} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteProduct(product.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                          >
+                            <ICONS.Delete size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+             <div className="flex justify-end">
+              <button
+                onClick={() => setTableFormOpen(true)}
+                className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-emerald-700 transition"
+              >
+                <ICONS.Plus size={18} />
+                Yeni Masa Ekle
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {tables.map(table => (
+                <div key={table.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-32 relative group">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2">
+                      <div className="bg-slate-100 p-2 rounded-lg text-slate-600">
+                        <ICONS.Table size={20} />
+                      </div>
+                      <span className="font-bold text-slate-800">{table.name}</span>
+                    </div>
+                    {table.status === 'occupied' ? (
+                       <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                    ) : (
+                       <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-end gap-2 mt-auto">
+                    <button 
+                        onClick={() => {
+                            setSelectedTableForQR(table);
+                            setQrModalOpen(true);
+                        }}
+                        className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
+                        title="QR Kod"
+                    >
+                        <ICONS.QrCode size={18} />
+                    </button>
+                    <button 
+                        onClick={(e) => handleDeleteTable(e, table)}
+                        className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                        title="Sil"
+                    >
+                        <ICONS.Delete size={18} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   const renderTablesView = () => (
     <div className="p-4 md:p-6 overflow-y-auto h-full bg-slate-100">
@@ -465,16 +644,28 @@ export default function App() {
                 onClick={() => handleTableSelect(table.id)}
                 className={`
                 h-28 md:h-32 rounded-2xl flex flex-col items-center justify-center gap-2 border-2 transition-all relative group shadow-sm
-                ${table.status === 'occupied' 
-                    ? 'bg-red-50 border-red-200 text-red-800' 
-                    : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-400 hover:text-emerald-600'}
+                ${table.needs_service ? 'bg-amber-100 border-amber-400 text-amber-800 animate-pulse' : 
+                   table.status === 'occupied' ? 'bg-red-50 border-red-200 text-red-800' : 
+                   'bg-white border-slate-200 text-slate-600 hover:border-emerald-400 hover:text-emerald-600'}
                 active:scale-95
                 `}
             >
+                {/* Waiter Bell Indicator */}
+                {table.needs_service && (
+                    <div className="absolute top-2 right-2 animate-bounce">
+                        <div 
+                            onClick={(e) => handleResolveService(e, table.id)}
+                            className="bg-amber-500 text-white p-1.5 rounded-full shadow-lg hover:bg-amber-600 cursor-pointer z-10"
+                        >
+                            <ICONS.Bell size={16} fill="currentColor" />
+                        </div>
+                    </div>
+                )}
+                
                 <ICONS.Table size={28} className="md:w-8 md:h-8" />
                 <span className="font-bold text-sm md:text-base">{table.name}</span>
-                {table.status === 'occupied' && (
-                    <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                {table.status === 'occupied' && !table.needs_service && (
+                    <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full" />
                 )}
             </button>
             ))}
@@ -594,208 +785,111 @@ export default function App() {
     </div>
   );
 
-  const renderManagementView = () => (
-      <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
-        <div className="bg-white p-4 md:p-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
-            <div className="flex items-center gap-4 w-full md:w-auto justify-between">
-                <h2 className="text-xl md:text-2xl font-bold text-slate-800">Yönetim</h2>
-                <div className="flex bg-slate-100 p-1 rounded-lg">
+  const renderOrdersView = () => {
+    // Filter displayed orders based on showDeletedOrders toggle
+    const displayedOrders = dailyOrders.filter(o => 
+        showDeletedOrders ? o.is_deleted : !o.is_deleted
+    );
+
+    return (
+        <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
+            <div className="bg-white p-4 md:p-6 border-b border-slate-200 flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-4">
+                    <h2 className="text-xl md:text-2xl font-bold text-slate-800">Günlük Sipariş Geçmişi</h2>
                     <button 
-                        onClick={() => setManagementTab('products')}
-                        className={`px-3 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all ${managementTab === 'products' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}
+                        onClick={() => setShowDeletedOrders(!showDeletedOrders)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${showDeletedOrders ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                     >
-                        Ürünler
+                        {showDeletedOrders ? <ICONS.Hide size={16} /> : <ICONS.Show size={16} />}
+                        {showDeletedOrders ? 'Silinenleri Gizle' : 'Silinenleri Göster'}
                     </button>
-                    <button 
-                         onClick={() => setManagementTab('tables')}
-                         className={`px-3 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all ${managementTab === 'tables' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}
-                    >
-                        Masalar
-                    </button>
+                </div>
+                <div className="text-sm text-slate-500 font-medium bg-slate-100 px-3 py-1 rounded-lg">
+                    {new Date().toLocaleDateString('tr-TR')}
                 </div>
             </div>
             
-            {managementTab === 'products' ? (
-                <button 
-                    onClick={() => {
-                        setEditingProduct(null);
-                        setProductFormOpen(true);
-                    }}
-                    className="w-full md:w-auto bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition text-sm"
-                >
-                    <ICONS.Plus size={18} />
-                    Yeni Ürün
-                </button>
-            ) : (
-                <button 
-                    onClick={() => setTableFormOpen(true)}
-                    className="w-full md:w-auto bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition text-sm"
-                >
-                    <ICONS.Plus size={18} />
-                    Yeni Masa
-                </button>
-            )}
-        </div>
-
-        <div className="flex-1 overflow-auto p-4 md:p-6">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-                {managementTab === 'products' ? (
+            <div className="flex-1 overflow-auto p-4 md:p-6">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
                     <table className="w-full text-left min-w-[600px]">
                         <thead className="bg-slate-50 border-b border-slate-200">
                             <tr>
-                                <th className="p-4 font-semibold text-slate-600 text-sm">Ürün Adı</th>
-                                <th className="p-4 font-semibold text-slate-600 text-sm">Kategori</th>
-                                <th className="p-4 font-semibold text-slate-600 text-sm">Tür</th>
-                                <th className="p-4 font-semibold text-slate-600 text-sm">Fiyat</th>
-                                <th className="p-4 font-semibold text-slate-600 text-sm text-right">İşlemler</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {products.map(p => (
-                                <tr key={p.id} className="hover:bg-slate-50 transition">
-                                    <td className="p-4 font-medium text-slate-800 text-sm whitespace-nowrap truncate max-w-[200px]">{p.name}</td>
-                                    <td className="p-4 text-slate-600 text-sm">
-                                        {CATEGORIES.find(c => c.id === p.category)?.label || p.category}
-                                    </td>
-                                    <td className="p-4 text-slate-600 text-sm">
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${p.type === 'retail' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
-                                            {p.type === 'retail' ? 'Perakende' : 'Hizmet'}
-                                        </span>
-                                    </td>
-                                    <td className="p-4 font-bold text-emerald-600 text-sm">{p.price.toFixed(2)} ₺/{p.unit}</td>
-                                    <td className="p-4 text-right space-x-1 whitespace-nowrap">
-                                        <button 
-                                            onClick={() => {
-                                                setEditingProduct(p);
-                                                setProductFormOpen(true);
-                                            }}
-                                            className="text-blue-600 hover:bg-blue-50 p-2 rounded transition text-xs"
-                                        >
-                                            Düzenle
-                                        </button>
-                                        <button 
-                                            onClick={() => handleDeleteProduct(p.id)}
-                                            className="text-red-600 hover:bg-red-50 p-2 rounded transition text-xs"
-                                        >
-                                            Sil
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                ) : (
-                    <table className="w-full text-left min-w-[400px]">
-                        <thead className="bg-slate-50 border-b border-slate-200">
-                            <tr>
-                                <th className="p-4 font-semibold text-slate-600 text-sm">Masa Adı</th>
+                                <th className="p-4 font-semibold text-slate-600 text-sm">Sipariş No</th>
+                                <th className="p-4 font-semibold text-slate-600 text-sm">Masa / Konum</th>
+                                <th className="p-4 font-semibold text-slate-600 text-sm">Saat</th>
+                                <th className="p-4 font-semibold text-slate-600 text-sm">Tutar</th>
                                 <th className="p-4 font-semibold text-slate-600 text-sm">Durum</th>
+                                <th className="p-4 font-semibold text-slate-600 text-sm">İçerik</th>
                                 <th className="p-4 font-semibold text-slate-600 text-sm text-right">İşlemler</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {tables.map(t => (
-                                <tr key={t.id} className="hover:bg-slate-50 transition">
-                                    <td className="p-4 font-medium text-slate-800 flex items-center gap-3 text-sm">
-                                        <ICONS.Table size={16} className="text-slate-400" />
-                                        {t.name}
-                                    </td>
-                                    <td className="p-4">
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.status === 'occupied' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                            {t.status === 'occupied' ? 'Dolu' : 'Müsait'}
-                                        </span>
-                                    </td>
-                                    <td className="p-4 text-right flex justify-end gap-2">
-                                        <button 
-                                            onClick={() => {
-                                                setSelectedTableForQR(t);
-                                                setQrModalOpen(true);
-                                            }}
-                                            className="text-slate-600 hover:bg-slate-100 p-2 rounded transition flex items-center gap-2 text-xs font-medium"
-                                        >
-                                            <ICONS.QrCode size={14} />
-                                            QR
-                                        </button>
-                                        <button 
-                                            onClick={(e) => handleDeleteTable(e, t)}
-                                            className="text-red-600 hover:bg-red-50 p-2 rounded transition flex items-center gap-2 text-xs font-medium"
-                                        >
-                                            <ICONS.Delete size={14} />
-                                            Sil
-                                        </button>
+                            {displayedOrders.length === 0 ? (
+                                <tr>
+                                    <td colSpan={7} className="p-8 text-center text-slate-400">
+                                        {showDeletedOrders ? 'Silinmiş sipariş bulunamadı.' : 'Bugün henüz sipariş alınmadı.'}
                                     </td>
                                 </tr>
-                            ))}
+                            ) : (
+                                displayedOrders.map(order => (
+                                    <tr key={order.id} className={`hover:bg-slate-50 transition ${order.is_deleted ? 'opacity-60 bg-slate-50' : ''}`}>
+                                        <td className="p-4 font-mono font-bold text-slate-700 text-sm">#{order.order_number}</td>
+                                        <td className="p-4 text-slate-800 text-sm font-medium">
+                                            {order.table_id 
+                                                ? tables.find(t => t.id === order.table_id)?.name || 'Bilinmeyen Masa'
+                                                : <span className="text-orange-600 bg-orange-50 px-2 py-0.5 rounded text-xs">Hızlı Satış</span>
+                                            }
+                                        </td>
+                                        <td className="p-4 text-slate-500 text-sm">
+                                            {new Date(order.created_at).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})}
+                                        </td>
+                                        <td className="p-4 font-bold text-emerald-600 text-sm">{order.total_amount.toFixed(2)} ₺</td>
+                                        <td className="p-4 text-sm">
+                                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase
+                                                ${order.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 
+                                                order.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}
+                                            `}>
+                                                {order.status === 'paid' ? 'Ödendi' : 
+                                                order.status === 'pending' ? 'Bekliyor' : order.status}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-slate-500 text-xs max-w-[200px] truncate">
+                                            {order.items?.map(i => `${i.product_name} (${i.quantity})`).join(', ')}
+                                        </td>
+                                        <td className="p-4 text-right">
+                                            <button 
+                                                onClick={() => handleToggleOrderDelete(order)}
+                                                className={`p-2 rounded transition flex items-center gap-2 ml-auto text-xs font-bold
+                                                    ${order.is_deleted 
+                                                        ? 'text-emerald-600 hover:bg-emerald-50' 
+                                                        : 'text-red-600 hover:bg-red-50'
+                                                    }
+                                                `}
+                                                title={order.is_deleted ? "Geri Al" : "Sil"}
+                                            >
+                                                {order.is_deleted ? (
+                                                    <>
+                                                        <ICONS.Restore size={16} />
+                                                        Geri Al
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <ICONS.Delete size={16} />
+                                                        Sil
+                                                    </>
+                                                )}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
-                )}
+                </div>
             </div>
         </div>
-      </div>
-  );
-
-  const renderOrdersView = () => (
-    <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
-        <div className="bg-white p-4 md:p-6 border-b border-slate-200 flex justify-between items-center shrink-0">
-            <h2 className="text-xl md:text-2xl font-bold text-slate-800">Günlük Sipariş Geçmişi</h2>
-            <div className="text-sm text-slate-500 font-medium bg-slate-100 px-3 py-1 rounded-lg">
-                {new Date().toLocaleDateString('tr-TR')}
-            </div>
-        </div>
-        
-        <div className="flex-1 overflow-auto p-4 md:p-6">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-                <table className="w-full text-left min-w-[600px]">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                        <tr>
-                            <th className="p-4 font-semibold text-slate-600 text-sm">Sipariş No</th>
-                            <th className="p-4 font-semibold text-slate-600 text-sm">Masa / Konum</th>
-                            <th className="p-4 font-semibold text-slate-600 text-sm">Saat</th>
-                            <th className="p-4 font-semibold text-slate-600 text-sm">Tutar</th>
-                            <th className="p-4 font-semibold text-slate-600 text-sm">Durum</th>
-                            <th className="p-4 font-semibold text-slate-600 text-sm">İçerik</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {dailyOrders.length === 0 ? (
-                             <tr>
-                                <td colSpan={6} className="p-8 text-center text-slate-400">Bugün henüz sipariş alınmadı.</td>
-                             </tr>
-                        ) : (
-                            dailyOrders.map(order => (
-                                <tr key={order.id} className="hover:bg-slate-50 transition">
-                                    <td className="p-4 font-mono font-bold text-slate-700 text-sm">#{order.order_number}</td>
-                                    <td className="p-4 text-slate-800 text-sm font-medium">
-                                        {order.table_id 
-                                            ? tables.find(t => t.id === order.table_id)?.name || 'Bilinmeyen Masa'
-                                            : <span className="text-orange-600 bg-orange-50 px-2 py-0.5 rounded text-xs">Hızlı Satış</span>
-                                        }
-                                    </td>
-                                    <td className="p-4 text-slate-500 text-sm">
-                                        {new Date(order.created_at).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})}
-                                    </td>
-                                    <td className="p-4 font-bold text-emerald-600 text-sm">{order.total_amount.toFixed(2)} ₺</td>
-                                    <td className="p-4 text-sm">
-                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase
-                                            ${order.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 
-                                              order.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}
-                                        `}>
-                                            {order.status === 'paid' ? 'Ödendi' : 
-                                             order.status === 'pending' ? 'Bekliyor' : order.status}
-                                        </span>
-                                    </td>
-                                    <td className="p-4 text-slate-500 text-xs max-w-[200px] truncate">
-                                        {order.items?.map(i => `${i.product_name} (${i.quantity})`).join(', ')}
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-  );
+    );
+  };
 
   const renderSchema = () => (
       <div className="p-8 h-full overflow-y-auto bg-slate-900 text-slate-300 font-mono">

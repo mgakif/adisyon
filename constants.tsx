@@ -17,7 +17,11 @@ import {
   Package,
   Menu,
   Database,
-  QrCode
+  QrCode,
+  Bell,
+  RotateCcw,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export const ICONS = {
@@ -39,7 +43,11 @@ export const ICONS = {
   Package: Package,
   Menu: Menu,
   Database: Database,
-  QrCode: QrCode
+  QrCode: QrCode,
+  Bell: Bell,
+  Restore: RotateCcw,
+  Show: Eye,
+  Hide: EyeOff
 };
 
 export const CATEGORIES = [

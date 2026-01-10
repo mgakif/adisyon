@@ -34,6 +34,7 @@ export interface Order {
   total_amount: number;
   created_at: string;
   order_number: string;
+  is_deleted?: boolean; // Soft delete flag
 }
 
 export interface Table {
@@ -41,6 +42,7 @@ export interface Table {
   name: string;
   status: 'available' | 'occupied' | 'reserved';
   current_order_id: string | null;
+  needs_service?: boolean; // Waiter call flag
 }
 
 // Mimicking Supabase Realtime Payload

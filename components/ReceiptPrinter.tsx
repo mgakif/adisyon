@@ -1,5 +1,6 @@
 import React from 'react';
-import { Order, OrderItem, Table } from '../types';
+import { createPortal } from 'react-dom';
+import { Order, OrderItem } from '../types';
 
 interface ReceiptPrinterProps {
   order: Partial<Order>;
@@ -11,7 +12,9 @@ export const ReceiptPrinter: React.FC<ReceiptPrinterProps> = ({ order, items, ta
   const total = items.reduce((acc, item) => acc + (item.total_price || 0), 0);
   const date = new Date().toLocaleString('tr-TR');
 
-  return (
+  // We use createPortal to render this outside of the #root div.
+  // This allows us to hide #root during printing without hiding the receipt.
+  return createPortal(
     <div id="printable-receipt" className="hidden">
       <div className="flex flex-col items-center mb-2 pb-2 border-b border-black border-dashed">
         <h2 className="text-xl font-bold uppercase">Kuruyemiş & Cafe</h2>
@@ -77,6 +80,7 @@ export const ReceiptPrinter: React.FC<ReceiptPrinterProps> = ({ order, items, ta
         <p>Afiyet Olsun!</p>
         <p className="mt-1">Mali Değeri Yoktur</p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -1,0 +1,45 @@
+import { 
+  ShoppingBasket, 
+  Coffee, 
+  Armchair, 
+  LayoutGrid, 
+  Settings, 
+  LogOut, 
+  Plus, 
+  Minus, 
+  Trash2, 
+  CreditCard, 
+  Banknote, 
+  CheckCircle2, 
+  X,
+  History,
+  ChefHat,
+  Package // New Icon
+} from 'lucide-react';
+
+export const ICONS = {
+  Retail: ShoppingBasket,
+  Service: Coffee,
+  Table: Armchair,
+  Dashboard: LayoutGrid,
+  Settings: Settings,
+  Logout: LogOut,
+  Plus: Plus,
+  Minus: Minus,
+  Delete: Trash2,
+  Card: CreditCard,
+  Cash: Banknote,
+  Check: CheckCircle2,
+  Close: X,
+  History: History,
+  Kitchen: ChefHat,
+  Package: Package
+};
+
+export const CATEGORIES = [
+  { id: 'all', label: 'Tümü' },
+  { id: 'nuts', label: 'Kuruyemiş' },
+  { id: 'dried_fruit', label: 'Kuru Meyve' },
+  { id: 'drinks', label: 'İçecekler' },
+  { id: 'dessert', label: 'Tatlı/Lokum' },
+];

@@ -1,87 +1,69 @@
 /**
- * Zil/çağrı sesi gibi bildirim sesi çalar
+ * Restoran çan sesi gibi bildirim sesi çalar
+ * Şeflerin sipariş hazır olduğunda bastığı "ding-ding-ding" sesi gibi
  * Web Audio API kullanarak programatik olarak oluşturulur
- * Birden fazla harmonik ile gerçekçi zil sesi efekti
  */
 export const playNotificationSound = () => {
   try {
     // Web Audio API context oluştur
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const now = audioContext.currentTime;
-    const duration = 0.6; // Biraz daha uzun zil sesi
     
-    // Ana zil tonu için osilatörler (harmonikler ile zengin ses)
-    const frequencies = [800, 1000, 1200]; // Üç farklı ton harmonik oluşturur
-    const oscillators: OscillatorNode[] = [];
-    const gainNodes: GainNode[] = [];
+    // Çan vuruşları - 3 kez çalacak (ding-ding-ding)
+    const bellStrikes = 3;
+    const strikeInterval = 150; // Her vuruş arası 150ms
+    const strikeDuration = 0.2; // Her vuruş 200ms
     
-    frequencies.forEach((freq, index) => {
-      const osc = audioContext.createOscillator();
-      const gain = audioContext.createGain();
+    for (let i = 0; i < bellStrikes; i++) {
+      const delay = i * strikeInterval;
       
-      // Zil sesi için daha uygun dalga tipi
-      osc.type = index === 0 ? 'sine' : 'triangle'; // Ana ton sine, diğerleri triangle
-      osc.frequency.setValueAtTime(freq, now);
-      
-      // Zil sesi envelope - hızlı attack, yavaş decay
-      const attackTime = 0.05;
-      const decayTime = duration - attackTime;
-      const maxGain = index === 0 ? 0.25 : 0.15; // Ana ton daha yüksek
-      
-      gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(maxGain, now + attackTime); // Hızlı başlangıç
-      gain.gain.exponentialRampToValueAtTime(0.01, now + duration); // Yavaş sönüş (zil efekti)
-      
-      osc.connect(gain);
-      gain.connect(audioContext.destination);
-      
-      oscillators.push(osc);
-      gainNodes.push(gain);
-    });
-    
-    // İkinci bir zil vuruşu ekle (kısa bir süre sonra - daha gerçekçi)
-    setTimeout(() => {
-      try {
-        const secondNow = audioContext.currentTime;
-        const shortFreqs = [900, 1100]; // Daha kısa ikinci vuruş
-        
-        shortFreqs.forEach((freq, index) => {
-          const osc = audioContext.createOscillator();
-          const gain = audioContext.createGain();
+      setTimeout(() => {
+        try {
+          const now = audioContext.currentTime;
           
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, secondNow);
+          // Çan sesi için metalik ton - birden fazla harmonik
+          const baseFreq = 880; // A5 notası - klasik çan tonu
+          const harmonics = [
+            { freq: baseFreq, gain: 0.3, type: 'sine' },      // Ana ton
+            { freq: baseFreq * 2, gain: 0.2, type: 'sine' },  // Oktav
+            { freq: baseFreq * 3, gain: 0.15, type: 'triangle' }, // Üçüncü harmonik
+            { freq: baseFreq * 4.5, gain: 0.1, type: 'sawtooth' } // Metalik tını için
+          ];
           
-          const shortDuration = 0.3;
-          gain.gain.setValueAtTime(0, secondNow);
-          gain.gain.linearRampToValueAtTime(0.12, secondNow + 0.03);
-          gain.gain.exponentialRampToValueAtTime(0.01, secondNow + shortDuration);
-          
-          osc.connect(gain);
-          gain.connect(audioContext.destination);
-          
-          osc.start(secondNow);
-          osc.stop(secondNow + shortDuration);
-        });
-      } catch (e) {
-        // İkinci vuruş hatası önemli değil
-      }
-    }, 200);
+          harmonics.forEach((harmonic, index) => {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            
+            osc.type = harmonic.type as OscillatorType;
+            osc.frequency.setValueAtTime(harmonic.freq, now);
+            
+            // Keskin attack, hızlı decay - çan karakteristiği
+            const attackTime = 0.01; // Çok hızlı başlangıç
+            const decayTime = strikeDuration - attackTime;
+            
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(harmonic.gain, now + attackTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + strikeDuration);
+            
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            
+            osc.start(now);
+            osc.stop(now + strikeDuration);
+          });
+        } catch (e) {
+          // Tek bir vuruş hatası önemli değil
+        }
+      }, delay);
+    }
     
-    // Ana osilatörleri başlat
-    oscillators.forEach(osc => {
-      osc.start(now);
-      osc.stop(now + duration);
-    });
-    
-    // Context'i temizle
+    // Context'i temizle (tüm vuruşlar bittikten sonra)
     setTimeout(() => {
       try {
         audioContext.close();
       } catch (e) {
         // Context zaten kapanmış olabilir
       }
-    }, (duration + 0.5) * 1000);
+    }, (bellStrikes * strikeInterval) + (strikeDuration * 1000) + 100);
     
   } catch (error) {
     // Eğer Web Audio API desteklenmiyorsa sessizce geç

@@ -21,7 +21,11 @@ import {
   Bell,
   RotateCcw,
   Eye,
-  EyeOff
+  EyeOff,
+  Search,
+  TrendingUp,
+  DollarSign,
+  Users
 } from 'lucide-react';
 
 export const ICONS = {
@@ -47,7 +51,11 @@ export const ICONS = {
   Bell: Bell,
   Restore: RotateCcw,
   Show: Eye,
-  Hide: EyeOff
+  Hide: EyeOff,
+  Search: Search,
+  TrendingUp: TrendingUp,
+  DollarSign: DollarSign,
+  Users: Users
 };
 
 export const CATEGORIES = [

@@ -27,6 +27,43 @@
         -webkit-appearance: none; 
         margin: 0; 
       }
+
+      /* --- THERMAL PRINTER STYLES (70mm) --- */
+      @media print {
+        @page {
+          margin: 0;
+          size: auto; /* Allow printer to determine length */
+        }
+        
+        body {
+          margin: 0;
+          padding: 0;
+          background: white;
+        }
+
+        /* Hide the main application UI */
+        #root {
+          display: none !important;
+        }
+
+        /* Show and style the receipt */
+        #printable-receipt {
+          display: block !important;
+          width: 70mm; /* 7cm width constraint */
+          padding: 2mm;
+          margin: 0 auto; /* Center on paper if paper is wider, or left align */
+          font-family: 'Courier New', Courier, monospace; /* Monospace aligns numbers better */
+          color: black;
+          background: white;
+          overflow: hidden;
+        }
+
+        /* Ensure texts are black for thermal printing */
+        * {
+          -webkit-print-color-adjust: exact !important;
+          color: black !important;
+        }
+      }
     </style>
   <script type="importmap">
 {

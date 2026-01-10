@@ -8,6 +8,7 @@ import PaymentModal from './components/PaymentModal';
 import ProductFormModal from './components/ProductFormModal';
 import TableFormModal from './components/TableFormModal'; 
 import Login from './components/Login';
+import { ReceiptPrinter } from './components/ReceiptPrinter';
 import { useSupabaseRealtime } from './hooks/useSupabaseRealtime';
 
 // --- SUB-COMPONENTS ---
@@ -277,7 +278,7 @@ export default function App() {
     }));
   };
 
-  const saveOrder = async () => {
+  const saveOrder = async (shouldPrint: boolean = false) => {
     if (cartItems.length === 0) return;
     
     try {
@@ -294,10 +295,24 @@ export default function App() {
         // Refresh tables immediately
         await refreshData();
         
-        alert('Sipariş Kaydedildi / Mutfakta!');
+        if (shouldPrint) {
+            // Trigger print
+            // We use a small timeout to ensure state is updated and receipt is rendered with latest info
+            setTimeout(() => {
+                window.print();
+            }, 100);
+        } else {
+            alert('Sipariş Kaydedildi / Mutfakta!');
+        }
     } catch (error) {
         console.error("Save failed", error);
         alert('Hata: Sipariş kaydedilemedi.');
+    }
+  };
+
+  const handlePrintOnly = () => {
+    if (cartItems.length > 0) {
+        window.print();
     }
   };
 
@@ -377,6 +392,9 @@ export default function App() {
   );
 
   const cartTotal = cartItems.reduce((acc, item) => acc + (item.total_price || 0), 0);
+  
+  // Derived active table name for Receipt
+  const activeTableName = activeTableId ? tables.find(t => t.id === activeTableId)?.name : 'Hızlı Satış';
 
   // --- VIEWS ---
 
@@ -461,13 +479,18 @@ export default function App() {
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <div className="flex flex-col overflow-hidden">
             <h3 className="font-bold text-slate-800 whitespace-nowrap truncate">
-                {activeTableId ? tables.find(t => t.id === activeTableId)?.name : 'Hızlı Satış'}
+                {activeTableName}
             </h3>
             <span className="text-[10px] text-slate-500">#{currentOrder.order_number || 'YENİ'}</span>
           </div>
-          <button onClick={() => setView('tables')} className="p-2 text-slate-400 hover:text-slate-600 transition-colors shrink-0">
-            <ICONS.Close size={20} />
-          </button>
+          <div className="flex gap-1">
+             <button onClick={handlePrintOnly} className="p-2 text-slate-400 hover:text-emerald-600 transition-colors shrink-0" title="Sadece Yazdır">
+                <ICONS.History size={20} />
+            </button>
+            <button onClick={() => setView('tables')} className="p-2 text-slate-400 hover:text-slate-600 transition-colors shrink-0">
+                <ICONS.Close size={20} />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/50">
@@ -496,10 +519,10 @@ export default function App() {
             
             <div className="grid grid-cols-2 gap-2">
                 <button 
-                    onClick={saveOrder}
+                    onClick={() => saveOrder(true)}
                     className="py-3 px-2 bg-orange-100 text-orange-700 text-sm font-bold rounded-xl hover:bg-orange-200 transition"
                 >
-                    Siparişi Yaz
+                    Yaz & Kaydet
                 </button>
                 <button 
                     onClick={() => {
@@ -736,6 +759,13 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-900 overflow-hidden">
+      {/* Hidden Thermal Printer Component */}
+      <ReceiptPrinter 
+        order={currentOrder} 
+        items={cartItems} 
+        tableName={activeTableName}
+      />
+
       {/* Drawer Sidebar Overlay */}
       {sidebarOpen && (
           <div 

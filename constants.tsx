@@ -14,7 +14,8 @@ import {
   X,
   History,
   ChefHat,
-  Package // New Icon
+  Package,
+  Menu // New Icon for Sidebar Toggle
 } from 'lucide-react';
 
 export const ICONS = {
@@ -33,7 +34,8 @@ export const ICONS = {
   Close: X,
   History: History,
   Kitchen: ChefHat,
-  Package: Package
+  Package: Package,
+  Menu: Menu
 };
 
 export const CATEGORIES = [

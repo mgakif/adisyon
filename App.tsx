@@ -21,21 +21,23 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) => (
   <button 
     onClick={onClick}
     className={`
-      relative overflow-hidden rounded-2xl p-4 flex flex-col justify-between text-left h-36 transition-all
+      relative overflow-hidden rounded-xl p-3 flex flex-col justify-between text-left h-28 transition-all
       ${product.type === 'retail' 
         ? 'bg-amber-50 border-2 border-amber-100 hover:border-amber-300 hover:bg-amber-100 text-amber-900' 
         : 'bg-slate-50 border-2 border-slate-100 hover:border-slate-300 hover:bg-slate-100 text-slate-900'}
       active:scale-95 shadow-sm
     `}
   >
-    <div className="flex justify-between items-start w-full">
-      <span className="font-bold text-lg leading-tight line-clamp-2">{product.name}</span>
-      {product.type === 'retail' ? <ICONS.Retail size={18} className="opacity-40 shrink-0" /> : <ICONS.Service size={18} className="opacity-40 shrink-0" />}
+    <div className="flex justify-between items-start w-full gap-1 overflow-hidden">
+      <span className="font-bold text-sm leading-tight whitespace-nowrap truncate flex-1 block">
+        {product.name}
+      </span>
+      {product.type === 'retail' ? <ICONS.Retail size={14} className="opacity-30 shrink-0" /> : <ICONS.Service size={14} className="opacity-30 shrink-0" />}
     </div>
     <div className="mt-auto">
-      <div className="flex items-baseline gap-1">
-        <span className="text-xl font-bold">{product.price}</span>
-        <span className="text-xs opacity-70">₺ / {product.unit}</span>
+      <div className="flex items-baseline gap-1 whitespace-nowrap">
+        <span className="text-lg font-bold">{product.price}</span>
+        <span className="text-[10px] opacity-70">₺/{product.unit}</span>
       </div>
     </div>
   </button>
@@ -49,14 +51,14 @@ interface CartItemRowProps {
 
 const CartItemRow: React.FC<CartItemRowProps> = ({ item, onRemove }) => (
   <div className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl shadow-sm animate-in slide-in-from-right-2">
-    <div className="flex-1">
-      <div className="font-medium text-slate-900">{item.product_name}</div>
+    <div className="flex-1 overflow-hidden">
+      <div className="font-medium text-slate-900 whitespace-nowrap truncate pr-2">{item.product_name}</div>
       <div className="text-xs text-slate-500 mt-0.5">
         {item.unit === 'kg' 
           ? (
             <span className="flex items-center gap-1">
                <span className="font-bold text-slate-700 text-sm">{(item.quantity * 1000).toFixed(0)} g</span>
-               <span className="text-slate-400 text-xs">x {item.unit_price} ₺/kg</span>
+               <span className="text-slate-400 text-[10px]">x {item.unit_price} ₺/kg</span>
             </span>
           )
           : (
@@ -66,7 +68,7 @@ const CartItemRow: React.FC<CartItemRowProps> = ({ item, onRemove }) => (
       </div>
     </div>
     <div className="flex items-center gap-3">
-      <span className="font-bold text-slate-800">{item.total_price?.toFixed(2) || '0.00'} ₺</span>
+      <span className="font-bold text-slate-800 whitespace-nowrap">{item.total_price?.toFixed(2) || '0.00'} ₺</span>
       <button 
         onClick={onRemove}
         className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded-full transition"
@@ -86,6 +88,7 @@ export default function App() {
   // App State
   const [view, setView] = useState<'tables' | 'pos' | 'orders' | 'schema' | 'management'>('tables');
   const [managementTab, setManagementTab] = useState<'products' | 'tables'>('products');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
@@ -317,16 +320,16 @@ export default function App() {
   // --- VIEWS ---
 
   const renderTablesView = () => (
-    <div className="p-6 overflow-y-auto h-full bg-slate-100">
+    <div className="p-4 md:p-6 overflow-y-auto h-full bg-slate-100">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-slate-800">Masa Seçimi</h2>
+        <h2 className="text-xl md:text-2xl font-bold text-slate-800">Masa Seçimi</h2>
         <div className="flex gap-4">
             <button 
                 onClick={() => handleTableSelect(null)} 
-                className="bg-orange-600 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-orange-700 font-bold flex items-center gap-2"
+                className="bg-orange-600 text-white px-4 py-3 md:px-6 md:py-3 rounded-xl shadow-lg hover:bg-orange-700 font-bold flex items-center gap-2 transition-transform active:scale-95 text-sm md:text-base"
             >
-                <ICONS.Retail />
-                Hızlı Satış (Kasa Önü)
+                <ICONS.Retail size={18} />
+                Hızlı Satış
             </button>
         </div>
       </div>
@@ -336,20 +339,21 @@ export default function App() {
               <p>Masa bulunamadı. "Yönetim" panelinden yeni masa oluşturun.</p>
           </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
             {tables.map(table => (
             <button
                 key={table.id}
                 onClick={() => handleTableSelect(table.id)}
                 className={`
-                h-32 rounded-2xl flex flex-col items-center justify-center gap-2 border-2 transition-all relative group
+                h-28 md:h-32 rounded-2xl flex flex-col items-center justify-center gap-2 border-2 transition-all relative group shadow-sm
                 ${table.status === 'occupied' 
-                    ? 'bg-red-50 border-red-200 text-red-800 shadow-sm' 
-                    : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-400 hover:text-emerald-600 shadow-sm'}
+                    ? 'bg-red-50 border-red-200 text-red-800' 
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-400 hover:text-emerald-600'}
+                active:scale-95
                 `}
             >
-                <ICONS.Table size={32} />
-                <span className="font-bold">{table.name}</span>
+                <ICONS.Table size={28} className="md:w-8 md:h-8" />
+                <span className="font-bold text-sm md:text-base">{table.name}</span>
                 {table.status === 'occupied' && (
                     <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
                 )}
@@ -365,20 +369,20 @@ export default function App() {
       {/* Left: Products Grid */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Categories */}
-        <div className="p-2 bg-white border-b border-slate-200 flex gap-2 overflow-x-auto no-scrollbar">
+        <div className="p-2 bg-white border-b border-slate-200 flex gap-2 overflow-x-auto no-scrollbar shrink-0">
           {CATEGORIES.map(cat => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
-              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${selectedCategory === cat.id ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedCategory === cat.id ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             >
               {cat.label}
             </button>
           ))}
         </div>
         {/* Grid */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="flex-1 overflow-y-auto p-3 md:p-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {filteredProducts.map(p => (
               <ProductCard key={p.id} product={p} onClick={() => handleProductClick(p)} />
             ))}
@@ -392,24 +396,24 @@ export default function App() {
       </div>
 
       {/* Right: Cart Drawer */}
-      <div className="w-full md:w-96 bg-white border-l border-slate-200 flex flex-col shadow-xl z-20">
+      <div className="w-full md:w-80 lg:w-96 bg-white border-l border-slate-200 flex flex-col shadow-xl z-20 shrink-0">
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <div className="flex flex-col">
-            <h3 className="font-bold text-slate-800">
+          <div className="flex flex-col overflow-hidden">
+            <h3 className="font-bold text-slate-800 whitespace-nowrap truncate">
                 {activeTableId ? tables.find(t => t.id === activeTableId)?.name : 'Hızlı Satış'}
             </h3>
-            <span className="text-xs text-slate-500">#{currentOrder.order_number || 'YENİ'}</span>
+            <span className="text-[10px] text-slate-500">#{currentOrder.order_number || 'YENİ'}</span>
           </div>
-          <button onClick={() => setView('tables')} className="p-2 text-slate-400 hover:text-slate-600">
-            <ICONS.Close />
+          <button onClick={() => setView('tables')} className="p-2 text-slate-400 hover:text-slate-600 transition-colors shrink-0">
+            <ICONS.Close size={20} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
+        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/50">
           {cartItems.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-60">
-                <ICONS.Retail size={48} className="mb-2" />
-                <p>Sepet Boş</p>
+                <ICONS.Retail size={40} className="mb-2" />
+                <p className="text-sm">Sepet Boş</p>
             </div>
           ) : (
             cartItems.map(item => <CartItemRow key={item.id} item={item} onRemove={() => removeFromCart(item.id)} />)
@@ -417,15 +421,15 @@ export default function App() {
         </div>
 
         <div className="p-4 bg-white border-t border-slate-200 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-            <div className="flex justify-between items-center mb-4">
-                <span className="text-slate-500">Toplam</span>
-                <span className="text-3xl font-bold text-emerald-600">{cartTotal.toFixed(2)} ₺</span>
+            <div className="flex justify-between items-center mb-3">
+                <span className="text-slate-500 text-sm">Toplam</span>
+                <span className="text-2xl font-bold text-emerald-600">{cartTotal.toFixed(2)} ₺</span>
             </div>
             
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
                 <button 
                     onClick={saveOrder}
-                    className="py-3 px-4 bg-orange-100 text-orange-700 font-bold rounded-xl hover:bg-orange-200 transition"
+                    className="py-3 px-2 bg-orange-100 text-orange-700 text-sm font-bold rounded-xl hover:bg-orange-200 transition"
                 >
                     Siparişi Yaz
                 </button>
@@ -440,7 +444,7 @@ export default function App() {
                         }
                     }}
                     disabled={cartItems.length === 0}
-                    className="py-3 px-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-200"
+                    className="py-3 px-2 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-200"
                 >
                     ÖDEME AL
                 </button>
@@ -451,20 +455,20 @@ export default function App() {
   );
 
   const renderManagementView = () => (
-      <div className="flex flex-col h-full bg-slate-50">
-        <div className="bg-white p-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-4">
-                <h2 className="text-2xl font-bold text-slate-800">Yönetim Paneli</h2>
+      <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
+        <div className="bg-white p-4 md:p-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
+            <div className="flex items-center gap-4 w-full md:w-auto justify-between">
+                <h2 className="text-xl md:text-2xl font-bold text-slate-800">Yönetim</h2>
                 <div className="flex bg-slate-100 p-1 rounded-lg">
                     <button 
                         onClick={() => setManagementTab('products')}
-                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${managementTab === 'products' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                        className={`px-3 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all ${managementTab === 'products' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}
                     >
                         Ürünler
                     </button>
                     <button 
                          onClick={() => setManagementTab('tables')}
-                         className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${managementTab === 'tables' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                         className={`px-3 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all ${managementTab === 'tables' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}
                     >
                         Masalar
                     </button>
@@ -477,61 +481,61 @@ export default function App() {
                         setEditingProduct(null);
                         setProductFormOpen(true);
                     }}
-                    className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-emerald-700 transition"
+                    className="w-full md:w-auto bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition text-sm"
                 >
-                    <ICONS.Plus size={20} />
-                    Yeni Ürün Ekle
+                    <ICONS.Plus size={18} />
+                    Yeni Ürün
                 </button>
             ) : (
                 <button 
                     onClick={() => setTableFormOpen(true)}
-                    className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-emerald-700 transition"
+                    className="w-full md:w-auto bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition text-sm"
                 >
-                    <ICONS.Plus size={20} />
-                    Yeni Masa Ekle
+                    <ICONS.Plus size={18} />
+                    Yeni Masa
                 </button>
             )}
         </div>
 
-        <div className="flex-1 overflow-auto p-6">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="flex-1 overflow-auto p-4 md:p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
                 {managementTab === 'products' ? (
-                    <table className="w-full text-left">
+                    <table className="w-full text-left min-w-[600px]">
                         <thead className="bg-slate-50 border-b border-slate-200">
                             <tr>
-                                <th className="p-4 font-semibold text-slate-600">Ürün Adı</th>
-                                <th className="p-4 font-semibold text-slate-600">Kategori</th>
-                                <th className="p-4 font-semibold text-slate-600">Tür</th>
-                                <th className="p-4 font-semibold text-slate-600">Fiyat</th>
-                                <th className="p-4 font-semibold text-slate-600 text-right">İşlemler</th>
+                                <th className="p-4 font-semibold text-slate-600 text-sm">Ürün Adı</th>
+                                <th className="p-4 font-semibold text-slate-600 text-sm">Kategori</th>
+                                <th className="p-4 font-semibold text-slate-600 text-sm">Tür</th>
+                                <th className="p-4 font-semibold text-slate-600 text-sm">Fiyat</th>
+                                <th className="p-4 font-semibold text-slate-600 text-sm text-right">İşlemler</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {products.map(p => (
                                 <tr key={p.id} className="hover:bg-slate-50 transition">
-                                    <td className="p-4 font-medium text-slate-800">{p.name}</td>
-                                    <td className="p-4 text-slate-600">
+                                    <td className="p-4 font-medium text-slate-800 text-sm whitespace-nowrap truncate max-w-[200px]">{p.name}</td>
+                                    <td className="p-4 text-slate-600 text-sm">
                                         {CATEGORIES.find(c => c.id === p.category)?.label || p.category}
                                     </td>
-                                    <td className="p-4 text-slate-600">
-                                        <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${p.type === 'retail' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                                    <td className="p-4 text-slate-600 text-sm">
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${p.type === 'retail' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
                                             {p.type === 'retail' ? 'Perakende' : 'Hizmet'}
                                         </span>
                                     </td>
-                                    <td className="p-4 font-bold text-emerald-600">{p.price.toFixed(2)} ₺ / {p.unit}</td>
-                                    <td className="p-4 text-right space-x-2">
+                                    <td className="p-4 font-bold text-emerald-600 text-sm">{p.price.toFixed(2)} ₺/{p.unit}</td>
+                                    <td className="p-4 text-right space-x-1 whitespace-nowrap">
                                         <button 
                                             onClick={() => {
                                                 setEditingProduct(p);
                                                 setProductFormOpen(true);
                                             }}
-                                            className="text-blue-600 hover:bg-blue-50 p-2 rounded transition"
+                                            className="text-blue-600 hover:bg-blue-50 p-2 rounded transition text-xs"
                                         >
                                             Düzenle
                                         </button>
                                         <button 
                                             onClick={() => handleDeleteProduct(p.id)}
-                                            className="text-red-600 hover:bg-red-50 p-2 rounded transition"
+                                            className="text-red-600 hover:bg-red-50 p-2 rounded transition text-xs"
                                         >
                                             Sil
                                         </button>
@@ -541,47 +545,37 @@ export default function App() {
                         </tbody>
                     </table>
                 ) : (
-                    // TABLES LIST
-                    <table className="w-full text-left">
+                    <table className="w-full text-left min-w-[400px]">
                         <thead className="bg-slate-50 border-b border-slate-200">
                             <tr>
-                                <th className="p-4 font-semibold text-slate-600">Masa Adı</th>
-                                <th className="p-4 font-semibold text-slate-600">Durum</th>
-                                <th className="p-4 font-semibold text-slate-600 text-right">İşlemler</th>
+                                <th className="p-4 font-semibold text-slate-600 text-sm">Masa Adı</th>
+                                <th className="p-4 font-semibold text-slate-600 text-sm">Durum</th>
+                                <th className="p-4 font-semibold text-slate-600 text-sm text-right">İşlemler</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {tables.map(t => (
                                 <tr key={t.id} className="hover:bg-slate-50 transition">
-                                    <td className="p-4 font-medium text-slate-800 flex items-center gap-3">
-                                        <div className="bg-slate-100 p-2 rounded-lg text-slate-500">
-                                            <ICONS.Table size={20} />
-                                        </div>
+                                    <td className="p-4 font-medium text-slate-800 flex items-center gap-3 text-sm">
+                                        <ICONS.Table size={16} className="text-slate-400" />
                                         {t.name}
                                     </td>
                                     <td className="p-4">
-                                        <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${t.status === 'occupied' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.status === 'occupied' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
                                             {t.status === 'occupied' ? 'Dolu' : 'Müsait'}
                                         </span>
                                     </td>
-                                    <td className="p-4 text-right space-x-2">
+                                    <td className="p-4 text-right">
                                         <button 
                                             onClick={(e) => handleDeleteTable(e, t)}
-                                            className="text-red-600 hover:bg-red-50 p-2 rounded transition flex items-center gap-2 ml-auto"
+                                            className="text-red-600 hover:bg-red-50 p-2 rounded transition flex items-center gap-2 ml-auto text-xs font-medium"
                                         >
-                                            <ICONS.Delete size={16} />
+                                            <ICONS.Delete size={14} />
                                             Sil
                                         </button>
                                     </td>
                                 </tr>
                             ))}
-                            {tables.length === 0 && (
-                                <tr>
-                                    <td colSpan={3} className="p-8 text-center text-slate-400">
-                                        Henüz masa eklenmemiş.
-                                    </td>
-                                </tr>
-                            )}
                         </tbody>
                     </table>
                 )}
@@ -593,11 +587,10 @@ export default function App() {
   const renderSchema = () => (
       <div className="p-8 h-full overflow-y-auto bg-slate-900 text-slate-300 font-mono">
           <div className="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
-            <h1 className="text-xl text-emerald-400">Database Schema (Supabase/PostgreSQL)</h1>
+            <h1 className="text-xl text-emerald-400">Database Schema</h1>
             <button onClick={() => setView('tables')} className="bg-slate-700 px-4 py-2 rounded text-white hover:bg-slate-600">Kapat</button>
           </div>
-          <p className="text-slate-400 mb-4">Aşağıdaki SQL komutlarını Supabase SQL Editor'de çalıştırarak tabloları oluşturun.</p>
-          <pre className="whitespace-pre-wrap text-sm">
+          <pre className="whitespace-pre-wrap text-xs md:text-sm">
             {supabaseService.getSchemaSQL()}
           </pre>
       </div>
@@ -611,35 +604,99 @@ export default function App() {
   // --- MAIN LAYOUT ---
 
   return (
-    <div className="flex h-screen bg-slate-100 font-sans text-slate-900">
-      {/* Sidebar Nav */}
-      <nav className="w-20 bg-slate-900 flex flex-col items-center py-6 gap-8 z-30 shrink-0">
-        <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-500/20">
+    <div className="flex h-screen bg-slate-100 font-sans text-slate-900 overflow-hidden">
+      {/* Drawer Sidebar Overlay */}
+      {sidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-40 animate-in fade-in duration-300" 
+            onClick={() => setSidebarOpen(false)} 
+          />
+      )}
+
+      {/* Side Nav (Collapsible Drawer) */}
+      <nav className={`
+        fixed inset-y-0 left-0 w-64 bg-slate-900 flex flex-col items-center py-6 z-50 transition-transform duration-300 ease-out shadow-2xl
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center text-white font-bold text-2xl shadow-lg shadow-emerald-500/20 mb-10">
             K
         </div>
-        <div className="flex flex-col gap-6 w-full">
-            <button onClick={() => setView('tables')} className={`p-3 w-full flex justify-center border-l-4 transition-all ${view === 'tables' || view === 'pos' ? 'border-emerald-500 text-emerald-400 bg-white/5' : 'border-transparent text-slate-400 hover:text-white'}`}>
-                <ICONS.Retail size={24} />
+        
+        <div className="flex flex-col gap-2 w-full px-4">
+            <button 
+                onClick={() => { setView('tables'); setSidebarOpen(false); }} 
+                className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all w-full text-left ${view === 'tables' || view === 'pos' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+            >
+                <ICONS.Retail size={20} />
+                <span className="font-semibold">Satış Ekranı</span>
             </button>
-            <button onClick={() => setView('management')} className={`p-3 w-full flex justify-center border-l-4 transition-all ${view === 'management' ? 'border-emerald-500 text-emerald-400 bg-white/5' : 'border-transparent text-slate-400 hover:text-white'}`}>
-                <ICONS.Settings size={24} />
+            <button 
+                onClick={() => { setView('management'); setSidebarOpen(false); }} 
+                className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all w-full text-left ${view === 'management' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+            >
+                <ICONS.Settings size={20} />
+                <span className="font-semibold">Yönetim Paneli</span>
             </button>
-            <button onClick={() => setView('schema')} className={`p-3 w-full flex justify-center border-l-4 transition-all ${view === 'schema' ? 'border-emerald-500 text-emerald-400 bg-white/5' : 'border-transparent text-slate-400 hover:text-white'}`}>
-                <ICONS.History size={24} />
+            <button 
+                onClick={() => { setView('schema'); setSidebarOpen(false); }} 
+                className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all w-full text-left ${view === 'schema' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+            >
+                <ICONS.History size={20} />
+                <span className="font-semibold">Veri Yapısı</span>
             </button>
         </div>
-        <div className="mt-auto">
-            <button onClick={handleLogout} className="p-3 text-red-400 hover:text-red-300"><ICONS.Logout size={24} /></button>
+
+        <div className="mt-auto w-full px-4">
+            <button 
+                onClick={handleLogout} 
+                className="flex items-center gap-4 px-4 py-3 rounded-xl text-red-400 hover:bg-red-400/10 transition-all w-full text-left"
+            >
+                <ICONS.Logout size={20} />
+                <span className="font-semibold">Çıkış Yap</span>
+            </button>
         </div>
+
+        {/* Inner Close Button for Sidebar */}
+        <button 
+            onClick={() => setSidebarOpen(false)}
+            className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"
+        >
+            <ICONS.Close size={24} />
+        </button>
       </nav>
 
-      {/* Main Content */}
-      <main className="flex-1 h-full overflow-hidden relative">
-        {view === 'tables' && renderTablesView()}
-        {view === 'pos' && renderPOSView()}
-        {view === 'schema' && renderSchema()}
-        {view === 'management' && renderManagementView()}
-      </main>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        {/* Top Header Bar */}
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0 shadow-sm z-30">
+            <div className="flex items-center gap-4">
+                <button 
+                    onClick={() => setSidebarOpen(true)}
+                    className="p-2 bg-slate-50 text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                >
+                    <ICONS.Menu size={24} />
+                </button>
+                <h1 className="font-bold text-slate-800 hidden sm:block">Kuruyemiş & POS</h1>
+            </div>
+
+            <div className="flex items-center gap-2">
+                <div className="hidden sm:flex flex-col items-end mr-2">
+                    <span className="text-xs font-bold text-slate-800">Admin Panel</span>
+                    <span className="text-[10px] text-emerald-500 font-medium">Sistem Çevrimiçi</span>
+                </div>
+                <div className="w-9 h-9 bg-slate-100 rounded-full flex items-center justify-center text-slate-600">
+                    <ICONS.Settings size={18} />
+                </div>
+            </div>
+        </header>
+
+        <main className="flex-1 overflow-hidden relative">
+            {view === 'tables' && renderTablesView()}
+            {view === 'pos' && renderPOSView()}
+            {view === 'schema' && renderSchema()}
+            {view === 'management' && renderManagementView()}
+        </main>
+      </div>
 
       {/* Modals */}
       <WeightModal 

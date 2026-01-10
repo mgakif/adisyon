@@ -69,7 +69,12 @@ export const supabaseService = {
       console.error('Error fetching products:', error);
       return [];
     }
-    return data as Product[];
+    
+    // DB'deki 'product_type' kolonunu Frontend'deki 'type' alanına eşle
+    return data.map((item: any) => ({
+        ...item,
+        type: item.product_type || item.type
+    })) as Product[];
   },
 
   saveProduct: async (product: Partial<Product>) => {
@@ -89,8 +94,16 @@ export const supabaseService = {
       return newProduct;
     }
 
+    // Prepare payload for DB
+    const productData: any = { ...product };
+    
+    // Frontend'deki 'type' alanını DB'deki 'product_type' kolonuna çevir
+    if (productData.type) {
+        productData.product_type = productData.type;
+        delete productData.type; // DB'de 'type' diye bir kolon yok, siliyoruz
+    }
+
     // Remove id if it's undefined/empty string to let DB handle generation or use specific ID
-    const productData = { ...product };
     if (!productData.id) delete productData.id;
 
     const { data, error } = await supabase
@@ -100,7 +113,13 @@ export const supabaseService = {
       .single();
 
     if (error) throw error;
-    return data;
+    
+    // Return ederken tekrar frontend formatına çevir
+    const savedProduct = data as any;
+    return {
+        ...savedProduct,
+        type: savedProduct.product_type
+    } as Product;
   },
 
   deleteProduct: async (id: string) => {

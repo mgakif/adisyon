@@ -261,7 +261,8 @@ export default function App() {
         await supabaseService.saveProduct(productData);
         await refreshData();
     } catch (e) {
-        alert('Ürün kaydedilemedi');
+        console.error(e);
+        alert('Ürün kaydedilemedi: ' + (e as any).message);
     }
   };
 
@@ -271,7 +272,8 @@ export default function App() {
             await supabaseService.deleteProduct(id);
             await refreshData();
         } catch (e) {
-            alert('Silinemedi');
+             console.error(e);
+            alert('Silinemedi: ' + (e as any).message);
         }
     }
   };
@@ -282,7 +284,8 @@ export default function App() {
         await supabaseService.saveTable(tableData);
         await refreshData();
     } catch (e) {
-        alert('Masa kaydedilemedi');
+         console.error(e);
+        alert('Masa kaydedilemedi: ' + (e as any).message);
     }
   };
 
@@ -297,7 +300,8 @@ export default function App() {
             await supabaseService.deleteTable(table.id);
             await refreshData();
         } catch (e) {
-            alert('Silinemedi');
+             console.error(e);
+            alert('Silinemedi: ' + (e as any).message);
         }
     }
   };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabaseService } from './services/supabaseService';
 import { Product, Table, Order, OrderItem, ProductCategory } from './types';
 import { ICONS, CATEGORIES } from './constants';
@@ -12,6 +12,7 @@ import PublicMenu from './components/PublicMenu'; // Import Public Menu
 import QRCodeModal from './components/QRCodeModal'; // Import QR Modal
 import { ReceiptPrinter } from './components/ReceiptPrinter';
 import { useSupabaseRealtime } from './hooks/useSupabaseRealtime';
+import { playNotificationSound } from './utils/soundNotification';
 
 // --- SUB-COMPONENTS ---
 
@@ -129,6 +130,9 @@ export default function App() {
   const [tables, setTables] = useState<Table[]>([]);
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
   
+  // Önceki tables state'ini takip etmek için (sesli bildirim için)
+  const prevTablesRef = useRef<Table[]>([]);
+  
   // Cart / Order State
   const [currentOrder, setCurrentOrder] = useState<Partial<Order>>({ items: [], total_amount: 0 });
   const [cartItems, setCartItems] = useState<OrderItem[]>([]);
@@ -188,6 +192,29 @@ export default function App() {
   useEffect(() => {
     if (session && !isCustomerMode) refreshData();
   }, [refreshData, session, isCustomerMode]);
+
+  // Garson çağrısı sesli bildirimi
+  useEffect(() => {
+    if (session && !isCustomerMode && tables.length > 0) {
+      // Önceki state ile karşılaştır
+      const prevTables = prevTablesRef.current;
+      
+      // Yeni garson çağrısı olan masaları bul
+      const newServiceCalls = tables.filter(table => {
+        const prevTable = prevTables.find(t => t.id === table.id);
+        // Eğer önceki state'de yoksa veya needs_service false'tu, şimdi true ise yeni çağrı
+        return table.needs_service && (!prevTable || !prevTable.needs_service);
+      });
+      
+      // Yeni garson çağrısı varsa ses çal
+      if (newServiceCalls.length > 0) {
+        playNotificationSound();
+      }
+      
+      // Şimdiki state'i bir sonraki karşılaştırma için sakla
+      prevTablesRef.current = tables;
+    }
+  }, [tables, session, isCustomerMode]);
 
   // Hook up Realtime with Deep Refresh Logic
   useSupabaseRealtime(useCallback(async () => {

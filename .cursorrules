@@ -1,0 +1,32 @@
+# CanKuruyemiş Adisyon (POS) Uygulaması
+
+Bu proje CanKuruyemiş dükkanı için geliştirilmiş bir adisyon (Point of Sale - POS) uygulamasıdır.
+
+## Teknoloji Stack
+- **Frontend**: React + TypeScript + Vite
+- **Backend/Database**: Supabase
+- **Hosting/Deployment**: Vercel
+- **UI Framework**: Tailwind CSS (CDN)
+
+## Proje Özellikleri
+- Masa yönetimi ve sipariş takibi
+- Ürün yönetimi (perakende ve hizmet ürünleri)
+- Ağırlık bazlı satış (kg cinsinden)
+- Sepet yönetimi ve ödeme işlemleri
+- Günlük sipariş geçmişi
+- QR kod ile müşteri menüsü
+- Termal yazıcı desteği (70mm fiş)
+- Realtime veri senkronizasyonu (Supabase Realtime)
+
+## Önemli Notlar
+- Supabase bağlantı bilgileri `.env` dosyasında veya `lib/supabase.ts` içindeki fallback değerlerle yapılandırılır
+- Vercel'de deploy edilirken environment variables ayarlanmalıdır
+- Proje React 18 ve modern TypeScript kullanır
+- Tailwind CSS CDN üzerinden yüklenir (index.html içinde)
+
+## Kod Standartları
+- TypeScript strict mode kullanılır
+- React functional components ve hooks kullanılır
+- Component'ler `components/` klasöründe organize edilir
+- Servisler `services/` klasöründe, hook'lar `hooks/` klasöründe bulunur
+- Türkçe kullanıcı arayüzü ve mesajlar kullanılır

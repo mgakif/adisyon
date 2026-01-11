@@ -43,7 +43,88 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, on
 
   if (!isOpen) return null;
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Resim sıkıştırma fonksiyonu
+  const compressImage = (file: File, maxWidth: number = 800, maxHeight: number = 800, quality: number = 0.8, maxSizeKB: number = 300): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Boyutları orantılı olarak küçült
+          if (width > height) {
+            if (width > maxWidth) {
+              height = (height * maxWidth) / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = (width * maxHeight) / height;
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Canvas context oluşturulamadı'));
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Kaliteyi ayarlayarak sıkıştır
+          let currentQuality = quality;
+          const tryCompress = (q: number): void => {
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) {
+                  reject(new Error('Resim sıkıştırılamadı'));
+                  return;
+                }
+
+                const sizeKB = blob.size / 1024;
+                
+                // Eğer hedef boyuttan büyükse ve kalite düşürülebilirse, tekrar dene
+                if (sizeKB > maxSizeKB && q > 0.5) {
+                  tryCompress(q - 0.1);
+                } else {
+                  // File nesnesine dönüştür
+                  const compressedFile = new File([blob], file.name, {
+                    type: 'image/jpeg',
+                    lastModified: Date.now(),
+                  });
+                  resolve(compressedFile);
+                }
+              },
+              'image/jpeg',
+              q
+            );
+          };
+
+          tryCompress(currentQuality);
+        };
+
+        img.onerror = () => {
+          reject(new Error('Resim yüklenemedi'));
+        };
+      };
+
+      reader.onerror = () => {
+        reject(new Error('Dosya okunamadı'));
+      };
+    });
+  };
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       // Validate file type
@@ -52,18 +133,29 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, on
         return;
       }
       
-      // Validate file size (max 5MB)
+      // Validate file size (max 5MB - sıkıştırma öncesi)
       if (file.size > 5 * 1024 * 1024) {
         alert('Resim boyutu 5MB\'dan küçük olmalıdır.');
         return;
       }
 
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        // Resmi sıkıştır
+        const compressedFile = await compressImage(file);
+        
+        // Sıkıştırılmış dosyayı kaydet
+        setImageFile(compressedFile);
+        
+        // Preview için oku
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(compressedFile);
+      } catch (error) {
+        console.error('Resim sıkıştırma hatası:', error);
+        alert('Resim işlenirken bir hata oluştu. Lütfen tekrar deneyin.');
+      }
     }
   };
 
@@ -117,7 +209,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, on
                     >
                       <ICONS.Package size={32} className="text-slate-400 mb-2" />
                       <p className="text-sm text-slate-500">Resim eklemek için tıklayın</p>
-                      <p className="text-xs text-slate-400 mt-1">JPG, PNG (Max 5MB)</p>
+                      <p className="text-xs text-slate-400 mt-1">JPG, PNG (Otomatik sıkıştırılır, ~300KB)</p>
                     </div>
                   )}
                   <input

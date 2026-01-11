@@ -311,22 +311,19 @@ const CartItemRow: React.FC<CartItemRowProps> = ({ item, onRemove, onEdit }) => 
 // --- MAIN APP COMPONENT ---
 
 export default function App() {
-  // Check for Public Menu Mode first
-  const [isCustomerMode, setIsCustomerMode] = useState(false);
+  // Check for Public Menu Mode FIRST - before any hooks
+  // This must be done synchronously to avoid hook count mismatch
+  const params = new URLSearchParams(window.location.search);
+  const isCustomerMode = params.get('menu') === 'true';
+  
+  // Early return BEFORE any hooks to prevent React error #300
+  if (isCustomerMode) {
+    return <PublicMenu />;
+  }
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const menuParam = params.get('menu');
-    const tableIdParam = params.get('tableId');
-    
-    if (menuParam === 'true') {
-        setIsCustomerMode(true);
-        console.log('Customer mode activated. TableId:', tableIdParam);
-    }
-  }, []);
-
-  // Auth State
+  // All hooks below will only run in admin mode
   const [session, setSession] = useState<any>(null);
+
 
   // App State
   const [view, setView] = useState<'tables' | 'pos' | 'orders' | 'schema' | 'management' | 'dashboard'>('tables');
@@ -377,13 +374,10 @@ export default function App() {
 
   // Check Auth on Mount
   useEffect(() => {
-    // Only check auth if NOT in customer mode
-    if (!isCustomerMode) {
-        supabaseService.getCurrentUser().then(user => {
-            if (user) setSession(user);
-        });
-    }
-  }, [isCustomerMode]);
+    supabaseService.getCurrentUser().then(user => {
+        if (user) setSession(user);
+    });
+  }, []);
 
   // Load Data
   const refreshData = useCallback(async () => {
@@ -405,18 +399,18 @@ export default function App() {
 
   // Fetch daily orders when view changes to 'orders'
   useEffect(() => {
-    if (view === 'orders' && !isCustomerMode) {
+    if (view === 'orders') {
         supabaseService.getDailyOrders().then(setDailyOrders);
     }
-  }, [view, isCustomerMode]);
+  }, [view]);
 
   useEffect(() => {
-    if (session && !isCustomerMode) refreshData();
-  }, [refreshData, session, isCustomerMode]);
+    if (session) refreshData();
+  }, [refreshData, session]);
 
   // Garson çağrısı sesli bildirimi
   useEffect(() => {
-    if (session && !isCustomerMode && tables.length > 0) {
+    if (session && tables.length > 0) {
       // Önceki state ile karşılaştır
       const prevTables = prevTablesRef.current;
       
@@ -435,7 +429,7 @@ export default function App() {
       // Şimdiki state'i bir sonraki karşılaştırma için sakla
       prevTablesRef.current = tables;
     }
-  }, [tables, session, isCustomerMode]);
+  }, [tables, session]);
 
   // Hook up Realtime with Deep Refresh Logic
   // State'leri ref'lerde saklayarak closure sorununu çözüyoruz
@@ -450,7 +444,7 @@ export default function App() {
   }, [view, activeTableId, currentOrder.id]);
 
   const realtimeCallback = useCallback(async () => {
-    if (session && !isCustomerMode) {
+    if (session) {
         // 1. Refresh general data (tables status colors, products)
         await refreshData();
         
@@ -482,7 +476,7 @@ export default function App() {
             }
         }
     }
-  }, [session, isCustomerMode, refreshData]);
+  }, [session, refreshData]);
 
   useSupabaseRealtime(realtimeCallback);
 
@@ -542,28 +536,6 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // --- EARLY RETURN FOR CUSTOMER MODE ---
-  if (isCustomerMode) {
-      try {
-        return <PublicMenu />;
-      } catch (error) {
-        console.error('PublicMenu render error:', error);
-        return (
-          <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-            <div className="bg-white p-6 rounded-2xl shadow-lg text-center max-w-md">
-              <h2 className="text-xl font-bold text-slate-800 mb-2">Hata</h2>
-              <p className="text-slate-600 mb-4">Menü yüklenirken bir hata oluştu.</p>
-              <button
-                onClick={() => window.location.reload()}
-                className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-emerald-700 transition"
-              >
-                Sayfayı Yenile
-              </button>
-            </div>
-          </div>
-        );
-      }
-  }
 
   // --- AUTH ACTIONS ---
   const handleLogout = async () => {

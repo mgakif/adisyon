@@ -31,15 +31,15 @@ export const ProductCardSkeleton = () => (
       <Skeleton variant="text" className="w-16 h-6" />
     </div>
     {/* Desktop Skeleton */}
-    <div className="hidden md:flex flex-col justify-between rounded-xl px-4 py-4 min-h-[140px] border border-slate-200 bg-white">
-      <div className="flex items-start gap-3 flex-1">
-        <Skeleton variant="rectangular" className="w-12 h-12" />
+    <div className="hidden md:flex flex-col justify-between rounded-xl px-3 py-3 min-h-[120px] border border-slate-200 bg-white">
+      <div className="flex items-start gap-2 flex-1">
+        <Skeleton variant="rectangular" className="w-10 h-10" />
         <div className="flex-1 space-y-2">
           <Skeleton variant="text" className="w-full h-4" />
           <Skeleton variant="text" className="w-3/4 h-4" />
         </div>
       </div>
-      <div className="mt-3 pt-3 border-t border-slate-200">
+      <div className="mt-2 pt-2 border-t border-slate-200">
         <Skeleton variant="text" className="w-20 h-6" />
       </div>
     </div>

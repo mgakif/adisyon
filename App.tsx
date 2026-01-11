@@ -24,71 +24,154 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 // 1. PRODUCT CARD
 interface ProductCardProps {
   product: Product;
-  onClick: () => void;
+  onAdd: () => void;
+  onRemove: () => void;
+  quantity: number;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) => (
-  <button 
-    onClick={onClick}
-    className={`
-      relative overflow-hidden rounded-xl px-3 py-2 md:px-4 md:py-4 
-      flex items-center md:flex-col md:justify-between text-left 
-      h-14 md:min-h-[140px] transition-all border w-full
-      ${product.type === 'retail' 
-        ? 'bg-amber-50 border-amber-200 hover:border-amber-300 hover:bg-amber-100 text-amber-950' 
-        : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-900'}
-      active:scale-95 shadow-sm group
-    `}
-  >
+const ProductCard: React.FC<ProductCardProps> = ({ product, onAdd, onRemove, quantity }) => {
+  const hasInCart = quantity > 0;
+  
+  const handleMinusClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onRemove();
+  };
+
+  const handlePlusClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onAdd();
+  };
+  
+  return (
+    <div
+      className={`
+        relative overflow-hidden rounded-xl px-3 py-2 md:px-3 md:py-3 
+        flex items-center md:flex-col md:justify-between text-left 
+        h-14 md:min-h-[120px] transition-all border w-full
+        ${hasInCart 
+          ? 'border-emerald-400 border-2 bg-emerald-50' 
+          : product.type === 'retail' 
+            ? 'bg-amber-50 border-amber-200 hover:border-amber-300 hover:bg-amber-100 text-amber-950' 
+            : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-900'}
+        shadow-sm group
+      `}
+    >
     {/* Mobile: Horizontal Layout - Single Row */}
     <div className="flex items-center gap-2 flex-1 min-w-0 md:hidden">
+      {/* Minus Button */}
+      <button
+        onClick={handleMinusClick}
+        disabled={!hasInCart}
+        className={`
+          w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all
+          ${hasInCart 
+            ? 'bg-red-100 text-red-600 hover:bg-red-200 active:scale-95' 
+            : 'bg-slate-100 text-slate-300 cursor-not-allowed'}
+        `}
+      >
+        <ICONS.Minus size={16} />
+      </button>
+
       <div className={`
         w-8 h-8 rounded-lg flex items-center justify-center shrink-0
         ${product.type === 'retail' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}
       `}>
          {product.type === 'retail' ? <ICONS.Retail size={16} /> : <ICONS.Service size={16} />}
       </div>
-      <span className="font-bold text-sm leading-tight truncate flex-1">
-        {product.name}
-      </span>
-      <div className="flex flex-col items-end shrink-0 ml-2">
+      
+      <div className="flex-1 min-w-0 flex flex-col">
+        <span className="font-bold text-sm leading-tight truncate">
+          {product.name}
+        </span>
+        {hasInCart && (
+          <span className="text-xs text-emerald-600 font-medium">
+            {quantity} {product.unit === 'kg' ? 'kg' : 'adet'}
+          </span>
+        )}
+      </div>
+
+      {/* Price - Centered */}
+      <div className="flex flex-col items-center shrink-0 mx-2">
         <div className="flex items-baseline gap-0.5">
           <span className="text-base font-bold">{product.price.toFixed(2)}</span>
           <span className="text-xs font-normal opacity-80">₺</span>
         </div>
         <span className="text-[10px] opacity-60 uppercase font-medium">
-          {product.unit}
-        </span>
-      </div>
-    </div>
-
-    {/* Desktop: Vertical Layout */}
-    <div className="hidden md:flex items-start gap-3 flex-1 min-w-0 w-full">
-      <div className={`
-        w-12 h-12 rounded-lg flex items-center justify-center shrink-0
-        ${product.type === 'retail' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}
-      `}>
-         {product.type === 'retail' ? <ICONS.Retail size={20} /> : <ICONS.Service size={20} />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <h3 className="font-bold text-base leading-snug break-words line-clamp-2">
-          {product.name}
-        </h3>
-      </div>
-    </div>
-    <div className="hidden md:flex items-end justify-between w-full mt-3 pt-3 border-t border-current/10">
-      <div className="flex flex-col items-start">
-        <div className="flex items-baseline gap-1">
-          <span className="text-2xl font-bold">{product.price.toFixed(2)}</span>
-          <span className="text-sm font-normal opacity-80">₺</span>
-        </div>
-        <span className="text-xs opacity-70 uppercase font-medium mt-1">
           {product.unit === 'kg' ? 'kilogram' : product.unit === 'qty' ? 'adet' : product.unit}
         </span>
       </div>
+
+      {/* Plus Button */}
+      <button
+        onClick={handlePlusClick}
+        className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 hover:bg-emerald-200 flex items-center justify-center shrink-0 active:scale-95 transition-all"
+      >
+        <ICONS.Plus size={16} />
+      </button>
     </div>
-  </button>
-);
+
+    {/* Desktop: Vertical Layout */}
+    <div className="hidden md:flex items-start gap-2 flex-1 min-w-0 w-full">
+      <div className={`
+        w-10 h-10 rounded-lg flex items-center justify-center shrink-0
+        ${product.type === 'retail' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}
+      `}>
+         {product.type === 'retail' ? <ICONS.Retail size={18} /> : <ICONS.Service size={18} />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <h3 className="font-bold text-sm leading-snug break-words line-clamp-2">
+          {product.name}
+        </h3>
+        {hasInCart && (
+          <span className="text-xs text-emerald-600 font-medium mt-0.5 inline-block">
+            Sepette: {quantity} {product.unit === 'kg' ? 'kg' : 'adet'}
+          </span>
+        )}
+      </div>
+    </div>
+    
+    <div className="hidden md:flex items-center justify-between w-full mt-2 pt-2 border-t border-current/10">
+      {/* Minus Button */}
+      <button
+        onClick={handleMinusClick}
+        disabled={!hasInCart}
+        className={`
+          w-9 h-9 rounded-lg flex items-center justify-center transition-all
+          ${hasInCart 
+            ? 'bg-red-100 text-red-600 hover:bg-red-200 active:scale-95' 
+            : 'bg-slate-100 text-slate-300 cursor-not-allowed'}
+        `}
+      >
+        <ICONS.Minus size={18} />
+      </button>
+
+      {/* Price - Centered */}
+      <div className="flex flex-col items-center">
+        <div className="flex items-baseline gap-0.5">
+          <span className="text-xl font-bold">{product.price.toFixed(2)}</span>
+          <span className="text-xs font-normal opacity-80">₺</span>
+        </div>
+        <span className="text-[10px] opacity-70 uppercase font-medium mt-0.5">
+          {product.unit === 'kg' ? 'kilogram' : product.unit === 'qty' ? 'adet' : product.unit}
+        </span>
+        {hasInCart && (
+          <span className="text-xs font-bold text-emerald-600 mt-0.5">
+            {quantity}x
+          </span>
+        )}
+      </div>
+
+      {/* Plus Button */}
+      <button
+        onClick={handlePlusClick}
+        className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-600 hover:bg-emerald-200 flex items-center justify-center active:scale-95 transition-all"
+      >
+        <ICONS.Plus size={18} />
+      </button>
+    </div>
+  </div>
+  );
+};
 
 // 2. CART ITEM
 interface CartItemRowProps {
@@ -771,55 +854,64 @@ export default function App() {
             </div>
             
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 border-b border-slate-100">
-                  <tr>
-                    <th className="p-4 text-sm font-semibold text-slate-600">Ürün Adı</th>
-                    <th className="p-4 text-sm font-semibold text-slate-600">Fiyat</th>
-                    <th className="p-4 text-sm font-semibold text-slate-600">Kategori</th>
-                    <th className="p-4 text-sm font-semibold text-slate-600 text-right">İşlemler</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
+              <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50">Ürün Adı</th>
+                      <th className="px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50">Fiyat</th>
+                      <th className="px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50">Kategori</th>
+                      <th className="px-3 py-2 text-xs font-semibold text-slate-600 text-right bg-slate-50">İşlemler</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
                   {products.map(product => (
-                    <tr key={product.id} className="hover:bg-slate-50">
-                      <td className="p-4 font-medium text-slate-800 flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${product.type === 'retail' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-600'}`}>
-                           {product.type === 'retail' ? <ICONS.Retail size={16} /> : <ICONS.Service size={16} />}
+                    <tr 
+                      key={product.id} 
+                      className="hover:bg-slate-50 cursor-pointer"
+                      onClick={() => {
+                        setEditingProduct(product);
+                        setProductFormOpen(true);
+                      }}
+                    >
+                      <td className="px-3 py-2 font-medium text-sm text-slate-800 flex items-center gap-2">
+                        <div className={`p-1.5 rounded-lg ${product.type === 'retail' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-600'}`}>
+                           {product.type === 'retail' ? <ICONS.Retail size={14} /> : <ICONS.Service size={14} />}
                         </div>
-                        {product.name}
+                        <span className="truncate">{product.name}</span>
                       </td>
-                      <td className="p-4 text-slate-600">
-                        {product.price.toFixed(2)} ₺ / {product.unit}
+                      <td className="px-3 py-2 text-sm text-slate-600 whitespace-nowrap">
+                        {product.price.toFixed(2)} ₺ / {product.unit === 'kg' ? 'kg' : product.unit === 'qty' ? 'adet' : product.unit}
                       </td>
-                      <td className="p-4">
-                        <span className="px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                      <td className="px-3 py-2">
+                        <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 whitespace-nowrap">
                             {CATEGORIES.find(c => c.id === product.category)?.label || product.category}
                         </span>
                       </td>
-                      <td className="p-4 text-right">
-                        <div className="flex justify-end gap-2">
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                           <button 
                             onClick={() => {
                               setEditingProduct(product);
                               setProductFormOpen(true);
                             }}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"
                           >
-                            <ICONS.Settings size={18} />
+                            <ICONS.Settings size={16} />
                           </button>
                           <button 
                             onClick={() => handleDeleteProduct(product.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition"
                           >
-                            <ICONS.Delete size={18} />
+                            <ICONS.Delete size={16} />
                           </button>
                         </div>
                       </td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         ) : (
@@ -939,7 +1031,7 @@ export default function App() {
   const renderPOSView = () => (
     <div className="flex flex-col md:flex-row h-full overflow-hidden bg-slate-50">
       {/* Left: Products Grid */}
-      <div className="flex-1 flex flex-col min-w-0 h-full">
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Search Bar */}
         <div className="p-2 bg-white border-b border-slate-200 shrink-0">
           <div className="relative">
@@ -974,16 +1066,37 @@ export default function App() {
           ))}
         </div>
         {/* Grid */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 min-h-0">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 md:gap-4 lg:gap-5">
               {[...Array(10)].map((_, i) => <ProductCardSkeleton key={i} />)}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-5">
-              {filteredProducts.map(p => (
-                <ProductCard key={p.id} product={p} onClick={() => handleProductClick(p)} />
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 md:gap-4 lg:gap-5">
+              {filteredProducts.map(p => {
+                const cartItem = cartItems.find(item => item.product_id === p.id);
+                const quantity = cartItem ? cartItem.quantity : 0;
+                return (
+                  <ProductCard 
+                    key={p.id} 
+                    product={p} 
+                    onAdd={() => {
+                      if (p.unit === 'kg') {
+                        setSelectedProductForWeight(p);
+                        setWeightModalOpen(true);
+                      } else {
+                        addToCart(p, 1);
+                      }
+                    }}
+                    onRemove={() => {
+                      if (cartItem) {
+                        removeFromCart(cartItem.id);
+                      }
+                    }}
+                    quantity={quantity}
+                  />
+                );
+              })}
               {filteredProducts.length === 0 && (
                   <div className="col-span-full text-center p-10 text-slate-400">
                       {searchQuery ? 'Arama sonucu bulunamadı.' : 'Ürün bulunamadı.'}
@@ -994,41 +1107,25 @@ export default function App() {
         </div>
       </div>
 
-      {/* Right: Cart Drawer */}
-      <div className="w-full md:w-80 lg:w-96 bg-white border-l border-slate-200 flex flex-col shadow-xl z-20 shrink-0 h-full overflow-hidden">
+      {/* Right: Cart Drawer - Only Buttons */}
+      <div className="w-full md:w-80 lg:w-96 bg-white border-l border-slate-200 flex flex-col shadow-xl z-20 shrink-0">
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
-          <div className="flex flex-col overflow-hidden min-w-0">
+          <div className="flex flex-col overflow-hidden">
             <h3 className="font-bold text-slate-800 whitespace-nowrap truncate">
                 {activeTableName}
             </h3>
             <span className="text-[10px] text-slate-500">#{currentOrder.order_number || 'YENİ'}</span>
           </div>
-          <div className="flex gap-1 shrink-0">
-            <button onClick={() => setView('tables')} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+          <div className="flex gap-1">
+            <button onClick={() => setView('tables')} className="p-2 text-slate-400 hover:text-slate-600 transition-colors shrink-0">
                 <ICONS.Close size={20} />
             </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/50 min-h-0">
-          {cartItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center text-slate-400 opacity-60 py-8">
-                <ICONS.Retail size={40} className="mb-2" />
-                <p className="text-sm">Sepet Boş</p>
-            </div>
-          ) : (
-            cartItems.map(item => (
-                <CartItemRow 
-                    key={item.id} 
-                    item={item} 
-                    onRemove={() => removeFromCart(item.id)}
-                    onEdit={() => handleEditCartItem(item)}
-                />
-            ))
-          )}
-        </div>
-
-        <div className="p-4 bg-white border-t border-slate-200 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] shrink-0">
+        {/* Sepet listesi gizlendi - sadece düğmeler gösteriliyor */}
+        
+        <div className="p-4 bg-white border-t border-slate-200 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
             <div className="flex justify-between items-center mb-3">
                 <span className="text-slate-500 text-sm">Toplam</span>
                 <span className="text-2xl font-bold text-emerald-600">{cartTotal.toFixed(2)} ₺</span>

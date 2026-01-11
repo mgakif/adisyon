@@ -334,6 +334,7 @@ export default function App() {
   const [tables, setTables] = useState<Table[]>([]);
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [darkMode, setDarkMode] = useState(false);
   
@@ -626,6 +627,29 @@ export default function App() {
     setCartItems(prev => prev.filter(i => i.id !== itemId));
   };
 
+  const decreaseCartQuantity = (productId: string) => {
+    setCartItems(prev => {
+      const item = prev.find(i => i.product_id === productId);
+      if (!item) return prev;
+
+      // Eğer miktar 1 ise tamamen çıkar
+      if (item.quantity <= 1) {
+        return prev.filter(i => i.id !== item.id);
+      }
+
+      // Miktarı 1 azalt
+      return prev.map(i => 
+        i.id === item.id 
+          ? {
+              ...i,
+              quantity: i.quantity - 1,
+              total_price: (i.quantity - 1) * i.unit_price
+            }
+          : i
+      );
+    });
+  };
+
   const handleEditCartItem = (item: OrderItem) => {
     setEditingCartItem(item);
     setEditQuantityModalOpen(true);
@@ -647,8 +671,10 @@ export default function App() {
   };
 
   const saveOrder = async () => {
-    if (cartItems.length === 0) return;
+    // Çift tıklama koruması
+    if (savingOrder || cartItems.length === 0) return;
     
+    setSavingOrder(true);
     try {
         const orderPayload = {
             ...currentOrder,
@@ -667,6 +693,8 @@ export default function App() {
     } catch (error) {
         console.error("Save failed", error);
         toast.error('Hata: Sipariş kaydedilemedi.');
+    } finally {
+        setSavingOrder(false);
     }
   };
 
@@ -1230,7 +1258,7 @@ export default function App() {
                     }}
                     onRemove={() => {
                       if (cartItem) {
-                        removeFromCart(cartItem.id);
+                        decreaseCartQuantity(p.id);
                       }
                     }}
                     quantity={quantity}
@@ -1275,10 +1303,10 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-2">
                     <button 
                         onClick={() => saveOrder()}
-                        disabled={cartItems.length === 0}
-                        className="py-3 px-2 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition shadow-sm disabled:opacity-50"
+                        disabled={cartItems.length === 0 || savingOrder}
+                        className="py-3 px-2 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        SİPARİŞİ KAYDET
+                        {savingOrder ? 'KAYDEDİLİYOR...' : 'SİPARİŞİ KAYDET'}
                     </button>
                     <button 
                         onClick={handlePrintOnly}
@@ -1291,7 +1319,7 @@ export default function App() {
                 </div>
                 <button 
                     onClick={() => {
-                        if (cartItems.length > 0) {
+                        if (cartItems.length > 0 && !savingOrder) {
                             if (!currentOrder.id) {
                                 saveOrder().then(() => setPaymentModalOpen(true));
                             } else {
@@ -1299,11 +1327,11 @@ export default function App() {
                             }
                         }
                     }}
-                    disabled={cartItems.length === 0}
+                    disabled={cartItems.length === 0 || savingOrder}
                     className="w-full py-4 bg-emerald-600 text-white text-base font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-200 flex items-center justify-center gap-2"
                 >
                     <ICONS.Card size={20} />
-                    ÖDEME AL
+                    {savingOrder ? 'KAYDEDİLİYOR...' : 'ÖDEME AL'}
                 </button>
             </div>
         </div>

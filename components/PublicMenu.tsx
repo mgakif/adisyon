@@ -7,10 +7,7 @@ import { ICONS, CATEGORIES } from '../constants';
 const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
   const [imageError, setImageError] = useState(false);
 
-  // Debug: image URL'ini kontrol et
-  if (product.image) {
-    console.log('Product image URL:', product.name, product.image);
-  }
+  // Debug log removed for production
 
   return (
     <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex gap-4 items-center">
@@ -50,6 +47,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
 const PublicMenu = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [table, setTable] = useState<Table | null>(null);
   const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'called'>('idle');
@@ -61,16 +59,25 @@ const PublicMenu = () => {
     
     const loadData = async () => {
       try {
+        setLoading(true);
+        setError(null);
+        
         const prods = await supabaseService.getProducts();
         setProducts(prods);
 
         if (tableId) {
-          const tables = await supabaseService.getTables();
-          const t = tables.find(t => t.id === tableId);
-          if (t) setTable(t);
+          try {
+            const tables = await supabaseService.getTables();
+            const t = tables.find(t => t.id === tableId);
+            if (t) setTable(t);
+          } catch (tableError) {
+            console.warn("Table load error (non-critical):", tableError);
+            // Table yüklenemezse devam et, kritik değil
+          }
         }
       } catch (error) {
         console.error("Menu load error", error);
+        setError('Menü yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.');
       } finally {
         setLoading(false);
       }
@@ -101,6 +108,24 @@ const PublicMenu = () => {
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
         <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
         <p className="text-slate-500 animate-pulse">Menü Yükleniyor...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+        <div className="bg-white p-6 rounded-2xl shadow-lg max-w-md text-center">
+          <ICONS.Retail size={48} className="mx-auto mb-4 text-red-500" />
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Hata</h2>
+          <p className="text-slate-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-emerald-700 transition"
+          >
+            Sayfayı Yenile
+          </button>
+        </div>
       </div>
     );
   }

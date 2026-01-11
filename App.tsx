@@ -316,8 +316,12 @@ export default function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('menu') === 'true') {
+    const menuParam = params.get('menu');
+    const tableIdParam = params.get('tableId');
+    
+    if (menuParam === 'true') {
         setIsCustomerMode(true);
+        console.log('Customer mode activated. TableId:', tableIdParam);
     }
   }, []);
 
@@ -540,7 +544,25 @@ export default function App() {
 
   // --- EARLY RETURN FOR CUSTOMER MODE ---
   if (isCustomerMode) {
-      return <PublicMenu />;
+      try {
+        return <PublicMenu />;
+      } catch (error) {
+        console.error('PublicMenu render error:', error);
+        return (
+          <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+            <div className="bg-white p-6 rounded-2xl shadow-lg text-center max-w-md">
+              <h2 className="text-xl font-bold text-slate-800 mb-2">Hata</h2>
+              <p className="text-slate-600 mb-4">Menü yüklenirken bir hata oluştu.</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-emerald-700 transition"
+              >
+                Sayfayı Yenile
+              </button>
+            </div>
+          </div>
+        );
+      }
   }
 
   // --- AUTH ACTIONS ---

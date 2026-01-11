@@ -20,6 +20,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import WeightModal from './components/WeightModal';
+import CustomPriceModal from './components/CustomPriceModal';
 import EditQuantityModal from './components/EditQuantityModal';
 import PaymentModal from './components/PaymentModal';
 import ProductFormModal from './components/ProductFormModal';
@@ -351,6 +352,8 @@ export default function App() {
   // Modals
   const [weightModalOpen, setWeightModalOpen] = useState(false);
   const [selectedProductForWeight, setSelectedProductForWeight] = useState<Product | null>(null);
+  const [customPriceModalOpen, setCustomPriceModalOpen] = useState(false);
+  const [selectedProductForCustomPrice, setSelectedProductForCustomPrice] = useState<Product | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   
@@ -590,9 +593,28 @@ export default function App() {
     if (product.unit === 'kg') {
       setSelectedProductForWeight(product);
       setWeightModalOpen(true);
+    } else if (product.category === 'other') {
+      // "Diğer" kategorisindeki ürünler için özel fiyat girme modal'ı
+      setSelectedProductForCustomPrice(product);
+      setCustomPriceModalOpen(true);
     } else {
       addToCart(product, 1);
     }
+  };
+
+  const handleCustomPriceConfirm = (product: Product, customPrice: number) => {
+    // Özel fiyatla sepete ekle
+    const newItem: OrderItem = {
+      id: crypto.randomUUID(),
+      product_id: product.id,
+      product_name: `${product.name} (Özel: ${customPrice.toFixed(2)} ₺)`,
+      quantity: 1,
+      unit_price: customPrice,
+      total_price: customPrice,
+      unit: product.unit
+    };
+    
+    setCartItems(prev => [...prev, newItem]);
   };
 
   const addToCart = (product: Product, quantity: number) => {
@@ -1252,6 +1274,10 @@ export default function App() {
                       if (p.unit === 'kg') {
                         setSelectedProductForWeight(p);
                         setWeightModalOpen(true);
+                      } else if (p.category === 'other') {
+                        // "Diğer" kategorisindeki ürünler için özel fiyat girme modal'ı
+                        setSelectedProductForCustomPrice(p);
+                        setCustomPriceModalOpen(true);
                       } else {
                         addToCart(p, 1);
                       }
@@ -1588,6 +1614,13 @@ export default function App() {
         product={selectedProductForWeight}
         onClose={() => setWeightModalOpen(false)}
         onConfirm={addToCart}
+      />
+      
+      <CustomPriceModal
+        isOpen={customPriceModalOpen}
+        product={selectedProductForCustomPrice}
+        onClose={() => setCustomPriceModalOpen(false)}
+        onConfirm={handleCustomPriceConfirm}
       />
       
       <EditQuantityModal

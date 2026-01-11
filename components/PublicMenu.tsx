@@ -136,7 +136,7 @@ const PublicMenu = () => {
       <div className="bg-slate-900 text-white p-6 rounded-b-3xl shadow-xl sticky top-0 z-20">
         <div className="flex justify-between items-center mb-4">
           <div>
-            <h1 className="text-2xl font-bold">Kuruyemiş & Cafe</h1>
+            <h1 className="text-2xl font-bold">Can Kuruyemiş Cafe</h1>
             {table && <p className="text-emerald-400 text-sm font-medium">📍 {table.name}</p>}
           </div>
           <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">

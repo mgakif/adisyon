@@ -17,7 +17,7 @@ export const ReceiptPrinter: React.FC<ReceiptPrinterProps> = ({ order, items, ta
   return createPortal(
     <div id="printable-receipt" className="hidden">
       <div className="flex flex-col items-center mb-2 pb-2 border-b border-black border-dashed">
-        <h2 className="text-xl font-bold uppercase">Kuruyemiş & Cafe</h2>
+        <h2 className="text-xl font-bold uppercase">Can Kuruyemiş Cafe</h2>
         <p className="text-[10px] mt-1">Hoşgeldiniz</p>
       </div>
 

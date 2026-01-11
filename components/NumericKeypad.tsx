@@ -26,7 +26,7 @@ const NumericKeypad: React.FC<NumericKeypadProps> = ({ onKeyPress, onDelete, onC
         onClick={onDelete}
         className="h-14 flex items-center justify-center text-red-500 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 transition-colors"
       >
-        <ICONS.Delete size={24} />
+        <ICONS.Backspace size={24} />
       </button>
       <button
         onClick={onConfirm}

@@ -26,7 +26,8 @@ import {
   TrendingUp,
   DollarSign,
   Users,
-  GripVertical
+  GripVertical,
+  ArrowLeft
 } from 'lucide-react';
 
 export const ICONS = {
@@ -57,7 +58,8 @@ export const ICONS = {
   TrendingUp: TrendingUp,
   DollarSign: DollarSign,
   Users: Users,
-  Grip: GripVertical
+  Grip: GripVertical,
+  Backspace: ArrowLeft
 };
 
 export const CATEGORIES = [
@@ -66,4 +68,5 @@ export const CATEGORIES = [
   { id: 'dried_fruit', label: 'Kuru Meyve' },
   { id: 'drinks', label: 'İçecekler' },
   { id: 'dessert', label: 'Tatlı/Lokum' },
+  { id: 'other', label: 'Diğer' },
 ];

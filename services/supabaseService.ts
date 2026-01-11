@@ -72,10 +72,16 @@ export const supabaseService = {
     }
     
     // DB'deki 'product_type' kolonunu Frontend'deki 'type' alanına eşle
-    return data.map((item: any) => ({
+    const products = data.map((item: any) => ({
         ...item,
-        type: item.product_type || item.type
+        type: item.product_type || item.type,
+        image: item.image || undefined // image alanını da dahil et
     })) as Product[];
+    
+    // Debug: image alanlarını kontrol et
+    console.log('Products with images:', products.filter(p => p.image).map(p => ({ name: p.name, image: p.image })));
+    
+    return products;
   },
 
   saveProduct: async (product: Partial<Product>) => {
@@ -106,6 +112,13 @@ export const supabaseService = {
 
     // Remove id if it's undefined/empty string to let DB handle generation or use specific ID
     if (!productData.id) delete productData.id;
+
+    // Debug: image URL'ini kontrol et
+    console.log('Saving to DB - productData:', { 
+      name: productData.name, 
+      image: productData.image,
+      hasImage: !!productData.image 
+    });
 
     const { data, error } = await supabase
       .from('products')
@@ -173,6 +186,10 @@ export const supabaseService = {
       });
 
     if (error) {
+      // Daha açıklayıcı hata mesajı
+      if (error.message.includes('Bucket not found') || error.message.includes('not found')) {
+        throw new Error('Storage bucket bulunamadı. Lütfen Supabase Dashboard\'dan "cankuruyemis" bucket\'ını oluşturun.');
+      }
       throw error;
     }
 

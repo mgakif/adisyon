@@ -729,7 +729,9 @@ export default function App() {
           image: imageUrl
         };
 
+        console.log('Saving product with image URL:', imageUrl);
         const savedProduct = await supabaseService.saveProduct(productToSave);
+        console.log('Saved product:', savedProduct);
         
         // If we used a temp ID, update it with the real ID and re-upload image
         if (imageFile && !productData.id && savedProduct.id) {

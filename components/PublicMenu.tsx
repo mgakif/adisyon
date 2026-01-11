@@ -7,6 +7,11 @@ import { ICONS, CATEGORIES } from '../constants';
 const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
   const [imageError, setImageError] = useState(false);
 
+  // Debug: image URL'ini kontrol et
+  if (product.image) {
+    console.log('Product image URL:', product.name, product.image);
+  }
+
   return (
     <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex gap-4 items-center">
       {product.image && !imageError ? (

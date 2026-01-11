@@ -1584,7 +1584,7 @@ export default function App() {
                 >
                     <ICONS.Menu size={24} />
                 </button>
-                <h1 className="font-bold text-slate-800 hidden sm:block">Kuruyemiş & POS</h1>
+                <h1 className="font-bold text-slate-800 hidden sm:block">Can Kuruyemiş Cafe</h1>
             </div>
 
             <div className="flex items-center gap-2">

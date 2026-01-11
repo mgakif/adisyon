@@ -1258,11 +1258,11 @@ export default function App() {
         {/* Grid */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 md:gap-4 lg:gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 lg:gap-5">
               {[...Array(10)].map((_, i) => <ProductCardSkeleton key={i} />)}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 md:gap-4 lg:gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 lg:gap-5">
               {filteredProducts.map(p => {
                 const cartItem = cartItems.find(item => item.product_id === p.id);
                 const quantity = cartItem ? cartItem.quantity : 0;

@@ -13,6 +13,7 @@ export interface Product {
   category: ProductCategory;
   image?: string;
   stock?: number;
+  sort_order?: number; // Sıralama için
 }
 
 export interface OrderItem {

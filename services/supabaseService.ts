@@ -63,7 +63,8 @@ export const supabaseService = {
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .order('name');
+      .order('sort_order', { ascending: true, nullsFirst: false })
+      .order('name', { ascending: true });
     
     if (error) {
       console.error('Error fetching products:', error);
@@ -120,6 +121,87 @@ export const supabaseService = {
         ...savedProduct,
         type: savedProduct.product_type
     } as Product;
+  },
+
+  updateProductSortOrder: async (updates: Array<{ id: string; sort_order: number }>) => {
+    if (isMockMode) {
+      await delay(200);
+      updates.forEach(update => {
+        const product = MOCK_PRODUCTS.find(p => p.id === update.id);
+        if (product) {
+          product.sort_order = update.sort_order;
+        }
+      });
+      return;
+    }
+
+    // Batch update using Promise.all
+    const updatePromises = updates.map(update =>
+      supabase
+        .from('products')
+        .update({ sort_order: update.sort_order })
+        .eq('id', update.id)
+    );
+
+    const results = await Promise.all(updatePromises);
+    
+    // Check for errors
+    const errors = results.filter(r => r.error);
+    if (errors.length > 0) {
+      throw new Error('Bazı ürünlerin sıralaması güncellenemedi');
+    }
+  },
+
+  // Upload product image to Supabase Storage
+  uploadProductImage: async (file: File, productId: string): Promise<string> => {
+    if (isMockMode) {
+      await delay(300);
+      // Mock mode'da local URL döndür
+      return URL.createObjectURL(file);
+    }
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${productId}-${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    // Upload file
+    const { data, error } = await supabase.storage
+      .from('cankuruyemis')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('cankuruyemis')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  },
+
+  // Delete product image from Supabase Storage
+  deleteProductImage: async (imageUrl: string): Promise<void> => {
+    if (isMockMode) {
+      return;
+    }
+
+    // Extract file path from URL
+    const urlParts = imageUrl.split('/');
+    const fileName = urlParts[urlParts.length - 1];
+    const filePath = fileName;
+
+    const { error } = await supabase.storage
+      .from('cankuruyemis')
+      .remove([filePath]);
+
+    if (error) {
+      throw error;
+    }
   },
 
   deleteProduct: async (id: string) => {

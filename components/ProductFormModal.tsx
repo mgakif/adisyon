@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Product, ProductUnit, ProductType, ProductCategory } from '../types';
 import { ICONS, CATEGORIES } from '../constants';
 
 interface ProductFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (product: Partial<Product>) => void;
+  onSave: (product: Partial<Product>, imageFile?: File) => void;
   initialData?: Product | null;
 }
 
@@ -17,11 +17,16 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, on
     type: 'retail',
     category: 'nuts'
   });
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
         if (initialData) {
             setFormData({ ...initialData });
+            setImagePreview(initialData.image || null);
+            setImageFile(null);
         } else {
             setFormData({
                 name: '',
@@ -30,15 +35,50 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, on
                 type: 'retail',
                 category: 'nuts'
             });
+            setImagePreview(null);
+            setImageFile(null);
         }
     }
   }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Lütfen bir resim dosyası seçin.');
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Resim boyutu 5MB\'dan küçük olmalıdır.');
+        return;
+      }
+
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImagePreview(null);
+    setImageFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    setFormData({ ...formData, image: undefined });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    onSave(formData, imageFile || undefined);
     onClose();
   };
 
@@ -51,6 +91,45 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, on
         </div>
         
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            {/* Image Upload */}
+            <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Ürün Resmi</label>
+                <div className="space-y-2">
+                  {imagePreview ? (
+                    <div className="relative">
+                      <img 
+                        src={imagePreview} 
+                        alt="Preview" 
+                        className="w-full h-48 object-cover rounded-lg border border-slate-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition"
+                      >
+                        <ICONS.Close size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full h-48 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50 transition"
+                    >
+                      <ICONS.Package size={32} className="text-slate-400 mb-2" />
+                      <p className="text-sm text-slate-500">Resim eklemek için tıklayın</p>
+                      <p className="text-xs text-slate-400 mt-1">JPG, PNG (Max 5MB)</p>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                </div>
+            </div>
+
             <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Ürün Adı</label>
                 <input 

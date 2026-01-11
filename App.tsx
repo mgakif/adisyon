@@ -2,6 +2,23 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabaseService } from './services/supabaseService';
 import { Product, Table, Order, OrderItem, ProductCategory } from './types';
 import { ICONS, CATEGORIES } from './constants';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import WeightModal from './components/WeightModal';
 import EditQuantityModal from './components/EditQuantityModal';
 import PaymentModal from './components/PaymentModal';
@@ -173,7 +190,79 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAdd, onRemove, qua
   );
 };
 
-// 2. CART ITEM
+// 2. SORTABLE PRODUCT ROW
+interface SortableProductRowProps {
+  product: Product;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+const SortableProductRow: React.FC<SortableProductRowProps> = ({ product, onEdit, onDelete }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: product.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <tr 
+      ref={setNodeRef}
+      style={style}
+      className={`hover:bg-slate-50 cursor-pointer ${isDragging ? 'bg-blue-50' : ''}`}
+      onClick={onEdit}
+    >
+      <td className="px-3 py-2 font-medium text-sm text-slate-800 flex items-center gap-2">
+        <div 
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-1 hover:bg-slate-200 rounded transition"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ICONS.Grip size={14} className="text-slate-400" />
+        </div>
+        <div className={`p-1.5 rounded-lg ${product.type === 'retail' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-600'}`}>
+           {product.type === 'retail' ? <ICONS.Retail size={14} /> : <ICONS.Service size={14} />}
+        </div>
+        <span className="truncate">{product.name}</span>
+      </td>
+      <td className="px-3 py-2 text-sm text-slate-600 whitespace-nowrap">
+        {product.price.toFixed(2)} ₺ / {product.unit === 'kg' ? 'kg' : product.unit === 'qty' ? 'adet' : product.unit}
+      </td>
+      <td className="px-3 py-2">
+        <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 whitespace-nowrap">
+            {CATEGORIES.find(c => c.id === product.category)?.label || product.category}
+        </span>
+      </td>
+      <td className="px-3 py-2 text-right">
+        <div className="flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <button 
+            onClick={onEdit}
+            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+          >
+            <ICONS.Settings size={16} />
+          </button>
+          <button 
+            onClick={onDelete}
+            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition"
+          >
+            <ICONS.Delete size={16} />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+};
+
+// 3. CART ITEM
 interface CartItemRowProps {
   item: OrderItem;
   onRemove: () => void;
@@ -612,14 +701,90 @@ export default function App() {
   };
 
   // Product Management Actions
-  const handleSaveProduct = async (productData: Partial<Product>) => {
+  const handleSaveProduct = async (productData: Partial<Product>, imageFile?: File) => {
     try {
-        await supabaseService.saveProduct(productData);
+        let imageUrl = productData.image;
+
+        // Upload image if a new file is provided
+        if (imageFile) {
+          // If editing and there's an old image, delete it first
+          if (productData.id && productData.image) {
+            try {
+              await supabaseService.deleteProductImage(productData.image);
+            } catch (e) {
+              console.warn('Eski resim silinemedi:', e);
+            }
+          }
+
+          // Upload new image
+          imageUrl = await supabaseService.uploadProductImage(
+            imageFile, 
+            productData.id || `temp-${Date.now()}`
+          );
+        }
+
+        // Save product with image URL
+        const productToSave = {
+          ...productData,
+          image: imageUrl
+        };
+
+        const savedProduct = await supabaseService.saveProduct(productToSave);
+        
+        // If we used a temp ID, update it with the real ID and re-upload image
+        if (imageFile && !productData.id && savedProduct.id) {
+          const finalImageUrl = await supabaseService.uploadProductImage(imageFile, savedProduct.id);
+          await supabaseService.saveProduct({ ...savedProduct, image: finalImageUrl });
+        }
+
         await refreshData();
         toast.success('Ürün kaydedildi!');
     } catch (e) {
         console.error(e);
         toast.error('Ürün kaydedilemedi: ' + (e as any).message);
+    }
+  };
+
+  // Drag and Drop Handler for Product Sorting
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = products.findIndex((p) => p.id === active.id);
+    const newIndex = products.findIndex((p) => p.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+
+    // Update local state immediately for better UX
+    const newProducts = arrayMove(products, oldIndex, newIndex);
+    setProducts(newProducts);
+
+    // Update sort_order in Supabase
+    try {
+      const updates = newProducts.map((product, index) => ({
+        id: product.id,
+        sort_order: index + 1,
+      }));
+
+      await supabaseService.updateProductSortOrder(updates);
+      toast.success('Sıralama güncellendi!');
+    } catch (e) {
+      console.error(e);
+      toast.error('Sıralama güncellenemedi: ' + (e as any).message);
+      // Revert on error
+      await refreshData();
     }
   };
 
@@ -855,62 +1020,41 @@ export default function App() {
             
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
-                    <tr>
-                      <th className="px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50">Ürün Adı</th>
-                      <th className="px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50">Fiyat</th>
-                      <th className="px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50">Kategori</th>
-                      <th className="px-3 py-2 text-xs font-semibold text-slate-600 text-right bg-slate-50">İşlemler</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                  {products.map(product => (
-                    <tr 
-                      key={product.id} 
-                      className="hover:bg-slate-50 cursor-pointer"
-                      onClick={() => {
-                        setEditingProduct(product);
-                        setProductFormOpen(true);
-                      }}
-                    >
-                      <td className="px-3 py-2 font-medium text-sm text-slate-800 flex items-center gap-2">
-                        <div className={`p-1.5 rounded-lg ${product.type === 'retail' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-600'}`}>
-                           {product.type === 'retail' ? <ICONS.Retail size={14} /> : <ICONS.Service size={14} />}
-                        </div>
-                        <span className="truncate">{product.name}</span>
-                      </td>
-                      <td className="px-3 py-2 text-sm text-slate-600 whitespace-nowrap">
-                        {product.price.toFixed(2)} ₺ / {product.unit === 'kg' ? 'kg' : product.unit === 'qty' ? 'adet' : product.unit}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 whitespace-nowrap">
-                            {CATEGORIES.find(c => c.id === product.category)?.label || product.category}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <div className="flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                          <button 
-                            onClick={() => {
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50 w-10"></th>
+                        <th className="px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50">Ürün Adı</th>
+                        <th className="px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50">Fiyat</th>
+                        <th className="px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50">Kategori</th>
+                        <th className="px-3 py-2 text-xs font-semibold text-slate-600 text-right bg-slate-50">İşlemler</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      <SortableContext
+                        items={products.map(p => p.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {products.map(product => (
+                          <SortableProductRow
+                            key={product.id}
+                            product={product}
+                            onEdit={() => {
                               setEditingProduct(product);
                               setProductFormOpen(true);
                             }}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                          >
-                            <ICONS.Settings size={16} />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteProduct(product.id)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition"
-                          >
-                            <ICONS.Delete size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  </tbody>
-                </table>
+                            onDelete={() => handleDeleteProduct(product.id)}
+                          />
+                        ))}
+                      </SortableContext>
+                    </tbody>
+                  </table>
+                </DndContext>
               </div>
             </div>
           </div>

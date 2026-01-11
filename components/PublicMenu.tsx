@@ -3,6 +3,45 @@ import { supabaseService } from '../services/supabaseService';
 import { Product, Table } from '../types';
 import { ICONS, CATEGORIES } from '../constants';
 
+// Product Card Component with Image
+const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
+  const [imageError, setImageError] = useState(false);
+
+  return (
+    <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex gap-4 items-center">
+      {product.image && !imageError ? (
+        <img 
+          src={product.image} 
+          alt={product.name}
+          className="w-20 h-20 object-cover rounded-xl flex-shrink-0"
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        <div className={`
+          w-20 h-20 rounded-xl flex items-center justify-center flex-shrink-0
+          ${product.type === 'retail' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}
+        `}>
+          {product.type === 'retail' ? <ICONS.Retail size={24} /> : <ICONS.Service size={24} />}
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <h3 className="font-bold text-slate-800 mb-1">{product.name}</h3>
+        <span className="text-xs text-slate-400 uppercase font-medium bg-slate-50 px-2 py-0.5 rounded inline-block">
+          {product.category === 'nuts' ? 'Kuruyemiş' : 
+           product.category === 'drinks' ? 'İçecek' : 
+           product.category === 'dessert' ? 'Tatlı' : 'Diğer'}
+        </span>
+      </div>
+      <div className="text-right flex-shrink-0">
+        <div className="font-bold text-emerald-600 text-lg">{product.price.toFixed(2)} ₺</div>
+        <div className="text-xs text-slate-400">
+          {product.unit === 'kg' ? '/ kg' : '/ adet'}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const PublicMenu = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,30 +142,7 @@ const PublicMenu = () => {
           </div>
         ) : (
           filteredProducts.map(product => (
-            <div key={product.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
-              <div className="flex items-center gap-4">
-                <div className={`
-                  w-12 h-12 rounded-xl flex items-center justify-center text-xl
-                  ${product.type === 'retail' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}
-                `}>
-                  {product.type === 'retail' ? <ICONS.Retail size={20} /> : <ICONS.Service size={20} />}
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-800">{product.name}</h3>
-                  <span className="text-xs text-slate-400 uppercase font-medium bg-slate-50 px-2 py-0.5 rounded">
-                    {product.category === 'nuts' ? 'Kuruyemiş' : 
-                     product.category === 'drinks' ? 'İçecek' : 
-                     product.category === 'dessert' ? 'Tatlı' : 'Diğer'}
-                  </span>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="font-bold text-emerald-600 text-lg">{product.price.toFixed(2)} ₺</div>
-                <div className="text-xs text-slate-400">
-                  {product.unit === 'kg' ? '/ kg' : '/ adet'}
-                </div>
-              </div>
-            </div>
+            <ProductCard key={product.id} product={product} />
           ))
         )}
       </div>

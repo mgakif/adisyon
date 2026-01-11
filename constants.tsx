@@ -25,7 +25,8 @@ import {
   Search,
   TrendingUp,
   DollarSign,
-  Users
+  Users,
+  GripVertical
 } from 'lucide-react';
 
 export const ICONS = {
@@ -55,7 +56,8 @@ export const ICONS = {
   Search: Search,
   TrendingUp: TrendingUp,
   DollarSign: DollarSign,
-  Users: Users
+  Users: Users,
+  Grip: GripVertical
 };
 
 export const CATEGORIES = [

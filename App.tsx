@@ -1225,12 +1225,14 @@ export default function App() {
                 {/* Waiter Bell Indicator */}
                 {table.needs_service && (
                     <div className="absolute top-2 right-2 animate-bounce">
-                        <div 
+                        <button
                             onClick={(e) => handleResolveService(e, table.id)}
-                            className="bg-amber-500 text-white p-1.5 rounded-full shadow-lg hover:bg-amber-600 cursor-pointer z-10"
+                            type="button"
+                            aria-label="Garson çağrısını kapat"
+                            className="bg-amber-500 text-white p-3 rounded-full shadow-lg hover:bg-amber-600 cursor-pointer z-10 active:scale-95 transition-transform"
                         >
-                            <ICONS.Bell size={16} fill="currentColor" />
-                        </div>
+                            <ICONS.Bell size={20} fill="currentColor" />
+                        </button>
                     </div>
                 )}
                 

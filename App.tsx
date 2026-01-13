@@ -333,6 +333,7 @@ export default function App() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
+  const [activeOrders, setActiveOrders] = useState<Order[]>([]);
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [savingOrder, setSavingOrder] = useState(false);
@@ -387,12 +388,14 @@ export default function App() {
   const refreshData = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, t] = await Promise.all([
+      const [p, t, ao] = await Promise.all([
         supabaseService.getProducts(),
-        supabaseService.getTables()
+        supabaseService.getTables(),
+        supabaseService.getActiveOrders(),
       ]);
       setProducts(p);
       setTables(t);
+      setActiveOrders(ao);
     } catch (error) {
       console.error('Veri yüklenirken hata:', error);
       // toast.error kullanmıyoruz çünkü bu refreshData'nın dependency'si oluyor
@@ -925,6 +928,19 @@ export default function App() {
   });
 
   const cartTotal = cartItems.reduce((acc, item) => acc + (item.total_price || 0), 0);
+
+  const activeOrdersById = new Map(activeOrders.map(o => [o.id, o]));
+  const getTableTotal = (table: Table) => {
+    if (table.status !== 'occupied' || !table.current_order_id) return null;
+    const order = activeOrdersById.get(table.current_order_id);
+    return order?.total_amount ?? null;
+  };
+  const occupiedTablesTotal = tables
+    .filter(t => t.status === 'occupied' && !!t.current_order_id)
+    .reduce((sum, t) => {
+      const order = t.current_order_id ? activeOrdersById.get(t.current_order_id) : undefined;
+      return sum + (order?.total_amount || 0);
+    }, 0);
   
   // Derived active table name for Receipt
   const activeTableName = activeTableId ? tables.find(t => t.id === activeTableId)?.name : 'Hızlı Satış';
@@ -1165,7 +1181,11 @@ export default function App() {
     <div className="p-4 md:p-6 overflow-y-auto h-full bg-slate-100">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl md:text-2xl font-bold text-slate-800">Masa Seçimi</h2>
-        <div className="flex gap-4">
+        <div className="flex items-center gap-4">
+            <div className="hidden sm:flex flex-col items-end bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm">
+                <span className="text-[11px] text-slate-500 font-semibold">Dolu Masalar Toplamı</span>
+                <span className="text-lg font-extrabold text-emerald-600 whitespace-nowrap">{occupiedTablesTotal.toFixed(2)} ₺</span>
+            </div>
             <button 
                 onClick={() => handleTableSelect(null)} 
                 className="bg-orange-600 text-white px-4 py-3 md:px-6 md:py-3 rounded-xl shadow-lg hover:bg-orange-700 font-bold flex items-center gap-2 transition-transform active:scale-95 text-sm md:text-base"
@@ -1173,6 +1193,14 @@ export default function App() {
                 <ICONS.Retail size={18} />
                 Hızlı Satış
             </button>
+        </div>
+      </div>
+
+      {/* Mobile summary */}
+      <div className="sm:hidden mb-4">
+        <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm flex items-center justify-between">
+          <span className="text-sm text-slate-600 font-semibold">Dolu Masalar Toplamı</span>
+          <span className="text-base font-extrabold text-emerald-600 whitespace-nowrap">{occupiedTablesTotal.toFixed(2)} ₺</span>
         </div>
       </div>
       
@@ -1208,6 +1236,11 @@ export default function App() {
                 
                 <ICONS.Table size={28} className="md:w-8 md:h-8" />
                 <span className="font-bold text-sm md:text-base">{table.name}</span>
+                {table.status === 'occupied' && (
+                  <span className="text-xs md:text-sm font-extrabold text-red-700 whitespace-nowrap">
+                    {(getTableTotal(table) ?? 0).toFixed(2)} ₺
+                  </span>
+                )}
                 {table.status === 'occupied' && !table.needs_service && (
                     <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full" />
                 )}
@@ -1317,7 +1350,25 @@ export default function App() {
           </div>
         </div>
 
-        {/* Sepet listesi gizlendi - sadece düğmeler gösteriliyor */}
+        {/* Desktop: Sepet listesi (mobilde gizli) */}
+        <div className="hidden md:flex flex-col flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            {cartItems.length === 0 ? (
+              <div className="text-center text-slate-400 text-sm py-10">
+                Sepet boş.
+              </div>
+            ) : (
+              cartItems.map(item => (
+                <CartItemRow
+                  key={item.id}
+                  item={item}
+                  onRemove={() => removeFromCart(item.id)}
+                  onEdit={() => handleEditCartItem(item)}
+                />
+              ))
+            )}
+          </div>
+        </div>
         
         <div className="p-4 bg-white border-t border-slate-200 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
             <div className="flex justify-between items-center mb-3">

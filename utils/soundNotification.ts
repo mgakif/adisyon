@@ -1,9 +1,25 @@
 /**
  * Restoran çan sesi gibi bildirim sesi çalar
  * Şeflerin sipariş hazır olduğunda bastığı "ding-ding-ding" sesi gibi
- * Web Audio API kullanarak programatik olarak oluşturulur
+ * Öncelik: public/ içindeki MP3 dosyasını çal (daha iyi/istenen ses).
+ * Eğer tarayıcı autoplay kısıtına takılırsa veya yüklenemezse Web Audio API fallback'i devreye girer.
  */
 export const playNotificationSound = () => {
+  // 1) Prefer MP3 from /public
+  try {
+    const audio = new Audio('/new-notification-022-370046.mp3');
+    audio.preload = 'auto';
+    audio.volume = 1;
+    // Not awaiting: we don't want to block UI; browsers may reject autoplay.
+    audio.play().catch(() => {
+      // fall back below
+    });
+    return;
+  } catch (e) {
+    // fall back below
+  }
+
+  // 2) Fallback: synth bell using Web Audio API
   try {
     // Web Audio API context oluştur
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
